@@ -21,9 +21,14 @@ const debugCount = document.getElementById("debugCount");
 const sessionLine = document.getElementById("sessionLine");
 const modeBadge = document.getElementById("modeBadge");
 const coderModeBadge = document.getElementById("coderModeBadge");
+const userInputPanel = document.getElementById("userInputPanel");
+const userInputQuestion = document.getElementById("userInputQuestion");
+const userInputTasks = document.getElementById("userInputTasks");
+const continueChainButton = document.getElementById("continueChainButton");
 
 let eventCount = 0;
 let activeRuns = 0;
+let pendingUserInput = null;
 
 initialize();
 
@@ -94,7 +99,35 @@ clearButton.addEventListener("click", async () => {
   debugLog.textContent = "";
   eventCount = 0;
   debugCount.textContent = "0 events";
+  hideUserInputPanel();
   await fetch("/api/clear-view", { method: "POST" });
+});
+
+continueChainButton.addEventListener("click", async () => {
+  if (!pendingUserInput) return;
+  const answer = promptInput.value.trim();
+  if (!answer) {
+    addDebugRow({
+      type: "ui:request-error",
+      ts: new Date().toISOString(),
+      message: "User feedback required before continuing the chain"
+    });
+    promptInput.focus();
+    return;
+  }
+  const request = pendingUserInput.userInputRequest || {};
+  await postPrompt("/api/full-chain", {
+    message: [
+      `Continue blocked ClauGeDex chain ${pendingUserInput.chainId}.`,
+      "",
+      "Original user input request:",
+      JSON.stringify(request, null, 2),
+      "",
+      "User feedback:",
+      answer
+    ].join("\n")
+  });
+  hideUserInputPanel();
 });
 
 async function postPrompt(url, payload) {
@@ -139,11 +172,44 @@ function handleEvent(event) {
     metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema} | ${formatTokens(event.tokens)}`;
   }
 
+  if (event.type === "chain:user-input-needed") {
+    showUserInputPanel(event);
+  }
+
   if (event.type === "ui:clear-view") {
     return;
   }
 
   addDebugRow(event);
+}
+
+function showUserInputPanel(event) {
+  pendingUserInput = event;
+  const request = event.userInputRequest || {};
+  userInputQuestion.textContent =
+    request.question || event.message || "The chain needs your input before it can continue.";
+  userInputTasks.textContent = "";
+  const tasks = [
+    ...(Array.isArray(event.userSetupTasks) ? event.userSetupTasks : []),
+    ...(Array.isArray(request.options) ? request.options : [])
+  ].filter((item) => item && item !== "none");
+  for (const task of tasks) {
+    const item = document.createElement("li");
+    item.textContent = String(task);
+    userInputTasks.append(item);
+  }
+  userInputTasks.hidden = tasks.length === 0;
+  userInputPanel.hidden = false;
+  promptInput.placeholder = request.requested_action || "Type your answer, permission, or setup result here.";
+  promptInput.focus();
+}
+
+function hideUserInputPanel() {
+  pendingUserInput = null;
+  userInputPanel.hidden = true;
+  userInputQuestion.textContent = "";
+  userInputTasks.textContent = "";
+  promptInput.placeholder = "";
 }
 
 function appendOutput(agentId, text) {
@@ -208,7 +274,12 @@ function summarizeEvent(event) {
   }
   if (event.type === "chain:complete") {
     const tokens = event.totalTokens ? ` tok:${formatNumber(event.totalTokens)}` : "";
-    return `${event.chainId} ${event.status} ${event.message}${tokens}`;
+    const input = event.userInputNeeded ? " user-input-needed" : "";
+    return `${event.chainId} ${event.status} ${event.message}${input}${tokens}`;
+  }
+  if (event.type === "chain:user-input-needed") {
+    const request = event.userInputRequest || {};
+    return `${event.chainId} ${request.question || event.message || "User input needed"}`;
   }
   if (event.type === "run:complete") {
     return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} ${formatTokens(event.tokens)} incident=${event.incident?.incidentId || "none"}`;
@@ -226,6 +297,7 @@ function setBusy(busy) {
   handshakeButton.disabled = busy;
   testChainButton.disabled = busy;
   fullChainButton.disabled = busy;
+  continueChainButton.disabled = busy;
 }
 
 function formatTokens(tokens) {

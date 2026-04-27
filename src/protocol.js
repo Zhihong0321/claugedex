@@ -13,6 +13,9 @@ function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema, respon
     extraFields: {},
     ...(responseContract || {})
   };
+  const allowedNextActions = Array.isArray(contract.nextActions) && contract.nextActions.length
+    ? contract.nextActions
+    : [contract.nextAction];
 
   return [
     agent.contextPrompt || "",
@@ -24,6 +27,7 @@ function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema, respon
     "- The JSON must be valid and machine parseable.",
     "- Do not put Markdown fences inside the markers.",
     "- Keep v0.0.1 responses short.",
+    `- Allowed next_action values for this response: ${allowedNextActions.join(", ")}.`,
     "",
     "Required JSON shape:",
     "{",
@@ -36,7 +40,7 @@ function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema, respon
     `  "run_id": "${runId}",`,
     `  "message": "${contract.messageHint}",`,
     ...formatExtraFields(contract.extraFields),
-    `  "next_action": "${contract.nextAction}"`,
+    `  "next_action": "${allowedNextActions[0]}"`,
     "}",
     "",
     "User prompt:",

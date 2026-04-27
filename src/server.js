@@ -296,6 +296,7 @@ async function runFullChain(res, userMessage) {
     "",
     "Brain must not assume production database, secrets, credentials, or external services are available.",
     "If env config, dependency install, auth, or service setup is needed, Brain must create a setup task for the user instead of doing it itself.",
+    "If progress is blocked by missing user permission or missing user input, Brain must set user_input_needed=true and describe the request in user_input_request.",
     "Looper is the trusted local validation authority for this chain; Brain should trust Looper's reported local test result unless the report conflicts with visible evidence."
   ].join("\n");
 
@@ -330,6 +331,13 @@ async function runFullChain(res, userMessage) {
           setup_status: "ready | needs-user-permission | unknown"
         },
         user_setup_tasks: ["permissioned setup task, or none"],
+        user_input_needed: false,
+        user_input_request: {
+          reason: "why user input is needed, or none",
+          question: "exact question for the user, or none",
+          options: ["suggested answer option, or none"],
+          requested_action: "what the user should do next, or none"
+        },
         looper_test_authority: "Looper is trusted to run or verify the local test result for this chain.",
         constraints: ["implementation constraint"],
         risks: ["likely risk"]
@@ -362,6 +370,7 @@ async function runFullChain(res, userMessage) {
     `Current Coder mode: ${coderMode}. Ask Coder to implement directly when the task is precise enough, and to stop with a clear blocker when it is not.`,
     "Keep scope tight. Map Brain's plan to actual files if they are known.",
     "Do not ask Coder to create secrets, configure production services, or set up missing env without user permission. Convert that need into user_setup_tasks.",
+    "If user permission or missing user input blocks progress, set user_input_needed=true and describe the exact user request in user_input_request.",
     "",
     "Brain envelope:",
     JSON.stringify(brainResult.envelope, null, 2)
@@ -393,6 +402,13 @@ async function runFullChain(res, userMessage) {
           }
         ],
         user_setup_tasks: ["permissioned setup task, or none"],
+        user_input_needed: false,
+        user_input_request: {
+          reason: "why user input is needed, or none",
+          question: "exact question for the user, or none",
+          options: ["suggested answer option, or none"],
+          requested_action: "what the user should do next, or none"
+        },
         validation_owner: "looper"
       }
     }
@@ -423,6 +439,7 @@ async function runFullChain(res, userMessage) {
     "Keep changes scoped to the task. Preserve unrelated user edits. Run relevant validation when possible.",
     "Run the local_test_commands from Looper when they are safe and the local environment is already configured.",
     "If a test needs missing env config, secrets, auth, dependency install, a production database, or an external service, do not set that up yourself; report it in tests_blocked and user_setup_tasks.",
+    "If you cannot continue without user permission or missing user input, set user_input_needed=true and describe the exact user request in user_input_request.",
     "If the task is unsafe, ambiguous, or outside the working folder, do not guess; return a clear blocker.",
     "",
     "Looper envelope:",
@@ -439,7 +456,7 @@ async function runFullChain(res, userMessage) {
     responseContract: {
       to: "app",
       type: "CODER_RESULT",
-      nextAction: "PASS_TO_APP",
+      nextActions: ["PASS_TO_APP", "USER_INPUT_NEEDED"],
       messageHint: "Coder completed implementation result",
       extraFields: {
         chain_id: chainId,
@@ -461,6 +478,13 @@ async function runFullChain(res, userMessage) {
           }
         ],
         user_setup_tasks: ["permissioned setup task, or none"],
+        user_input_needed: false,
+        user_input_request: {
+          reason: "why user input is needed, or none",
+          question: "exact question for the user, or none",
+          options: ["suggested answer option, or none"],
+          requested_action: "what the user should do next, or none"
+        },
         validation_notes: ["validation note"]
       }
     }
@@ -471,7 +495,7 @@ async function runFullChain(res, userMessage) {
     to: "app",
     type: "CODER_RESULT",
     status: "OK",
-    next_action: "PASS_TO_APP"
+    next_action: ["PASS_TO_APP", "USER_INPUT_NEEDED"]
   })) {
     const failed = completeChain(chainId, "FAILED", "Coder did not return CODER_RESULT.", {
       brainRunId: brainResult.runId,
@@ -490,7 +514,9 @@ async function runFullChain(res, userMessage) {
     "You are the trusted local validation authority for this chain.",
     "Compare Coder's result against Brain's plan, success criteria, and local test plan.",
     "Trust only local evidence reported by Coder or visible in the provided envelopes.",
-    "If tests passed, report PASS. If tests failed, report FAIL. If tests need user-approved setup, report BLOCKED and list user_setup_tasks.",
+    "If tests passed, report PASS with next_action PASS_TO_APP.",
+    "If tests failed, report FAIL with next_action PASS_TO_APP.",
+    "If tests need user-approved setup or missing user input, report BLOCKED with next_action USER_INPUT_NEEDED and fill user_input_request.",
     "",
     "Brain envelope:",
     JSON.stringify(brainResult.envelope, null, 2),
@@ -509,7 +535,7 @@ async function runFullChain(res, userMessage) {
     responseContract: {
       to: "app",
       type: "LOOPER_VALIDATION_RESULT",
-      nextAction: "PASS_TO_APP",
+      nextActions: ["PASS_TO_APP", "USER_INPUT_NEEDED"],
       messageHint: "Looper validated Coder result against Brain plan",
       extraFields: {
         chain_id: chainId,
@@ -519,7 +545,14 @@ async function runFullChain(res, userMessage) {
         tests_blocked: ["blocked test summary"],
         matched_success_criteria: ["criterion result"],
         remaining_risks: ["risk"],
-        user_setup_tasks: ["permissioned setup task, or none"]
+        user_setup_tasks: ["permissioned setup task, or none"],
+        user_input_needed: false,
+        user_input_request: {
+          reason: "why user input is needed, or none",
+          question: "exact question for the user, or none",
+          options: ["suggested answer option, or none"],
+          requested_action: "what the user should do next, or none"
+        }
       }
     }
   });
@@ -529,7 +562,7 @@ async function runFullChain(res, userMessage) {
     to: "app",
     type: "LOOPER_VALIDATION_RESULT",
     status: "OK",
-    next_action: "PASS_TO_APP"
+    next_action: ["PASS_TO_APP", "USER_INPUT_NEEDED"]
   })) {
     const failed = completeChain(chainId, "FAILED", "Looper did not return LOOPER_VALIDATION_RESULT.", {
       brainRunId: brainResult.runId,
@@ -542,6 +575,7 @@ async function runFullChain(res, userMessage) {
   }
 
   emitRoute(chainId, "looper", "app", validationResult);
+  const userInputEvent = emitUserInputNeededIfBlocked(chainId, validationResult);
 
   const completed = completeChain(chainId, "OK", "Full Chain succeeded: Brain -> Looper -> Coder -> Looper -> App.", {
     brainRunId: brainResult.runId,
@@ -549,6 +583,7 @@ async function runFullChain(res, userMessage) {
     coderRunId: coderResult.runId,
     validationRunId: validationResult.runId,
     validationStatus: validationResult.envelope.validation_status || null,
+    userInputNeeded: Boolean(userInputEvent),
     totalTokens: sumResultTokens([brainResult, looperResult, coderResult, validationResult])
   });
   return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult, coder: coderResult, validation: validationResult } });
@@ -586,7 +621,10 @@ function isUsableAgentResult(result) {
 
 function envelopeMatches(envelope, expected) {
   if (!envelope) return false;
-  return Object.entries(expected).every(([key, value]) => envelope[key] === value);
+  return Object.entries(expected).every(([key, value]) => {
+    if (Array.isArray(value)) return value.includes(envelope[key]);
+    return envelope[key] === value;
+  });
 }
 
 function sumResultTokens(results) {
@@ -597,6 +635,25 @@ function getCoderMode() {
   const coder = config.agents.coder || {};
   const sandboxMode = coder.sandboxMode || "unspecified";
   return coder.writeAccess ? `edit-enabled:${sandboxMode}` : `read-only:${sandboxMode}`;
+}
+
+function emitUserInputNeededIfBlocked(chainId, result) {
+  const envelope = result.envelope || {};
+  const blocked = envelope.validation_status === "BLOCKED";
+  const requested = envelope.next_action === "USER_INPUT_NEEDED" || envelope.user_input_needed === true;
+  if (!blocked && !requested) return null;
+
+  const event = session.appendEvent({
+    type: "chain:user-input-needed",
+    chainId,
+    sourceRunId: result.runId,
+    from: envelope.from || result.agentId,
+    message: envelope.message || "User input is needed to continue the chain.",
+    userSetupTasks: Array.isArray(envelope.user_setup_tasks) ? envelope.user_setup_tasks : [],
+    userInputRequest: envelope.user_input_request || null
+  });
+  emit(event);
+  return event;
 }
 
 function getLocalValidationContext() {

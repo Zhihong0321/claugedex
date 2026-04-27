@@ -51,6 +51,13 @@ function inferExtraFields(type) {
     return {
       plan: ["Mock Brain plan"],
       success_criteria: ["Mock success criterion"],
+      user_input_needed: false,
+      user_input_request: {
+        reason: "none",
+        question: "none",
+        options: [],
+        requested_action: "none"
+      },
       constraints: ["Mock constraint"],
       risks: ["Mock risk"]
     };
@@ -60,7 +67,14 @@ function inferExtraFields(type) {
       task: "Mock Looper task for Coder",
       target_files: ["mock.txt"],
       constraints: ["Mock mode does not edit real files"],
-      success_criteria: ["Mock Coder returns CODER_RESULT"]
+      success_criteria: ["Mock Coder returns CODER_RESULT"],
+      user_input_needed: false,
+      user_input_request: {
+        reason: "none",
+        question: "none",
+        options: [],
+        requested_action: "none"
+      }
     };
   }
   if (type === "CODER_RESULT") {
@@ -78,6 +92,13 @@ function inferExtraFields(type) {
       ],
       tests_blocked: [],
       user_setup_tasks: [],
+      user_input_needed: false,
+      user_input_request: {
+        reason: "none",
+        question: "none",
+        options: [],
+        requested_action: "none"
+      },
       validation_notes: ["Mock validation passed"]
     };
   }
@@ -89,7 +110,14 @@ function inferExtraFields(type) {
       tests_blocked: [],
       matched_success_criteria: ["Mock success criterion matched"],
       remaining_risks: [],
-      user_setup_tasks: []
+      user_setup_tasks: [],
+      user_input_needed: false,
+      user_input_request: {
+        reason: "none",
+        question: "none",
+        options: [],
+        requested_action: "none"
+      }
     };
   }
   return {};

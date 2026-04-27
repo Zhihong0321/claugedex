@@ -69,6 +69,12 @@
       <aside class="side-panel">
         <section class="chat-panel">
           <h2>Chat</h2>
+          <div id="userInputPanel" class="user-input-panel" hidden>
+            <strong>User input needed</strong>
+            <p id="userInputQuestion"></p>
+            <ul id="userInputTasks"></ul>
+            <button id="continueChainButton" type="button">Send Feedback to Full Chain</button>
+          </div>
           <form id="promptForm">
             <div class="target-row" id="targetRow">
               <label><input type="checkbox" value="brain" checked /> Brain</label>

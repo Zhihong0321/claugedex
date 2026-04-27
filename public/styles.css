@@ -195,6 +195,36 @@ input {
   padding: 12px;
 }
 
+.user-input-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #f2c46d;
+  border-radius: 8px;
+  background: #fff8ea;
+}
+
+.user-input-panel[hidden] {
+  display: none;
+}
+
+.user-input-panel strong {
+  color: var(--warn);
+  font-size: 13px;
+}
+
+.user-input-panel p,
+.user-input-panel ul {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.user-input-panel ul {
+  padding-left: 18px;
+}
+
 .target-row {
   display: flex;
   flex-wrap: wrap;
