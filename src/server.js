@@ -188,7 +188,7 @@ async function runTestChain(res) {
     }
   });
 
-  if (!isUsableAgentResult(brainResult) || !envelopeMatches(brainResult.envelope, {
+  if (!hasUsableProtocolResult(brainResult) || !envelopeMatches(brainResult.envelope, {
     from: "brain",
     to: "looper",
     type: "PLAN_TO_LOOPER",
@@ -243,7 +243,7 @@ async function runTestChain(res) {
     }
   });
 
-  if (!isUsableAgentResult(looperResult) || !envelopeMatches(looperResult.envelope, {
+  if (!hasUsableProtocolResult(looperResult) || !envelopeMatches(looperResult.envelope, {
     from: "looper",
     to: "app",
     type: "CHAIN_TEST_SUCCESS",
@@ -345,7 +345,7 @@ async function runFullChain(res, userMessage) {
     }
   });
 
-  if (!isUsableAgentResult(brainResult) || !envelopeMatches(brainResult.envelope, {
+  if (!hasUsableProtocolResult(brainResult) || !envelopeMatches(brainResult.envelope, {
     from: "brain",
     to: "looper",
     type: "PLAN_TO_LOOPER",
@@ -414,7 +414,7 @@ async function runFullChain(res, userMessage) {
     }
   });
 
-  if (!isUsableAgentResult(looperResult) || !envelopeMatches(looperResult.envelope, {
+  if (!hasUsableProtocolResult(looperResult) || !envelopeMatches(looperResult.envelope, {
     from: "looper",
     to: "coder",
     type: "TASK_TO_CODER",
@@ -490,7 +490,7 @@ async function runFullChain(res, userMessage) {
     }
   });
 
-  if (!isUsableAgentResult(coderResult) || !envelopeMatches(coderResult.envelope, {
+  if (!hasUsableProtocolResult(coderResult) || !envelopeMatches(coderResult.envelope, {
     from: "coder",
     to: "app",
     type: "CODER_RESULT",
@@ -557,7 +557,7 @@ async function runFullChain(res, userMessage) {
     }
   });
 
-  if (!isUsableAgentResult(validationResult) || !envelopeMatches(validationResult.envelope, {
+  if (!hasUsableProtocolResult(validationResult) || !envelopeMatches(validationResult.envelope, {
     from: "looper",
     to: "app",
     type: "LOOPER_VALIDATION_RESULT",
@@ -615,8 +615,8 @@ function completeChain(chainId, status, message, details = {}) {
   return event;
 }
 
-function isUsableAgentResult(result) {
-  return Boolean(result && result.exitCode === 0 && !result.timedOut && result.protocolOk && result.envelope);
+function hasUsableProtocolResult(result) {
+  return Boolean(result && !result.spawnError && result.protocolOk && result.envelope);
 }
 
 function envelopeMatches(envelope, expected) {

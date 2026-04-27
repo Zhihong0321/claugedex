@@ -48,7 +48,8 @@ input {
 .topbar p,
 .agent-panel h2,
 .chat-panel h2,
-.debug-panel h2 {
+.debug-panel h2,
+.operator-card h2 {
   margin: 0;
 }
 
@@ -78,17 +79,95 @@ input {
   padding: 12px;
 }
 
+.main-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tab-button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.tab-button.active {
+  color: #ffffff;
+  border-color: var(--accent-strong);
+  background: var(--accent);
+}
+
+.tab-button.active:hover {
+  background: var(--accent-strong);
+}
+
+.tab-view {
+  min-width: 0;
+  min-height: 0;
+}
+
+.tab-view[hidden] {
+  display: none;
+}
+
+.operator-view {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.operator-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.operator-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.operator-main {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.operator-detail {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .agents-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
 
 .agent-panel,
 .chat-panel,
-.debug-panel {
+.debug-panel,
+.operator-card {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -113,7 +192,8 @@ input {
 
 .agent-panel h2,
 .chat-panel h2,
-.debug-panel h2 {
+.debug-panel h2,
+.operator-card h2 {
   font-size: 15px;
   line-height: 1.2;
   letter-spacing: 0;
@@ -153,6 +233,12 @@ input {
   background: #edf9f2;
 }
 
+.status.ok-warning {
+  color: var(--warn);
+  border-color: #f2c46d;
+  background: #fff8ea;
+}
+
 .status.needs-attention {
   color: var(--bad);
   border-color: #f0aaa5;
@@ -185,14 +271,25 @@ input {
 
 .side-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
 
 .chat-panel,
 .debug-panel {
   padding: 12px;
+}
+
+.chat-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+#promptForm {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
 }
 
 .user-input-panel {
@@ -314,12 +411,19 @@ button:disabled {
 }
 
 .debug-log {
-  height: calc(100% - 30px);
+  height: 100%;
   min-height: 220px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcfd;
+}
+
+.debug-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
 }
 
 .event-row {
@@ -353,6 +457,14 @@ button:disabled {
     min-height: calc(100vh - 72px);
   }
 
+  .operator-view {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-card:last-child {
+    grid-column: auto;
+  }
+
   .agents-grid {
     grid-template-columns: 1fr;
   }
@@ -361,8 +473,12 @@ button:disabled {
     min-height: 320px;
   }
 
+  .main-panel {
+    min-height: auto;
+  }
+
   .side-panel {
-    grid-template-rows: auto 420px;
+    min-height: 380px;
   }
 }
 

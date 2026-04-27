@@ -22,48 +22,143 @@
     </header>
 
     <main class="workspace">
-      <section class="agents-grid" aria-label="Agent responses">
-        <article class="agent-panel" data-agent="brain">
-          <header>
-            <div>
-              <h2>Brain</h2>
-              <span class="provider">Claude Code CLI</span>
-            </div>
-            <span class="status idle">idle</span>
-          </header>
-          <pre class="output" id="output-brain"></pre>
-          <footer>
-            <span id="meta-brain">No runs yet</span>
-          </footer>
-        </article>
+      <section class="main-panel">
+        <nav class="tabs" role="tablist" aria-label="Workspace views">
+          <button
+            id="tab-button-operator"
+            class="tab-button active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-operator"
+            data-tab-target="tab-operator"
+          >
+            Operator
+          </button>
+          <button
+            id="tab-button-agents"
+            class="tab-button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-agents"
+            data-tab-target="tab-agents"
+          >
+            Agents
+          </button>
+          <button
+            id="tab-button-logs"
+            class="tab-button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-logs"
+            data-tab-target="tab-logs"
+          >
+            Logs
+          </button>
+        </nav>
 
-        <article class="agent-panel" data-agent="looper">
-          <header>
-            <div>
-              <h2>Looper</h2>
-              <span class="provider">Gemini CLI</span>
-            </div>
-            <span class="status idle">idle</span>
-          </header>
-          <pre class="output" id="output-looper"></pre>
-          <footer>
-            <span id="meta-looper">No runs yet</span>
-          </footer>
-        </article>
+        <section
+          id="tab-operator"
+          class="tab-view operator-view"
+          role="tabpanel"
+          aria-labelledby="tab-button-operator"
+        >
+          <article class="operator-card">
+            <h2>System</h2>
+            <p id="operatorSystemStatus" class="operator-main">Connecting to event stream...</p>
+            <p id="operatorSystemDetail" class="operator-detail">No activity yet</p>
+          </article>
+          <article class="operator-card">
+            <h2>Last Chain</h2>
+            <p id="operatorLastChainStatus" class="operator-main">No chains yet</p>
+            <p id="operatorLastChainDetail" class="operator-detail">Waiting for chain:start</p>
+          </article>
+          <article class="operator-card">
+            <h2>Agent Health</h2>
+            <p id="operatorAgentHealthStatus" class="operator-main">No runs yet</p>
+            <p id="operatorAgentHealthDetail" class="operator-detail">Waiting for run:complete</p>
+          </article>
+          <article class="operator-card">
+            <h2>Last Route</h2>
+            <p id="operatorLastRouteStatus" class="operator-main">No routing yet</p>
+            <p id="operatorLastRouteDetail" class="operator-detail">Waiting for chain:route</p>
+          </article>
+          <article class="operator-card">
+            <h2>Tokens</h2>
+            <p id="operatorTokensStatus" class="operator-main">tok:0</p>
+            <p id="operatorTokensDetail" class="operator-detail">No token reports yet</p>
+          </article>
+        </section>
 
-        <article class="agent-panel" data-agent="coder">
-          <header>
-            <div>
-              <h2>Coder</h2>
-              <span class="provider">Codex CLI</span>
+        <section
+          id="tab-agents"
+          class="tab-view"
+          role="tabpanel"
+          aria-labelledby="tab-button-agents"
+          hidden
+        >
+          <section class="agents-grid" aria-label="Agent responses">
+            <article class="agent-panel" data-agent="brain">
+              <header>
+                <div>
+                  <h2>Brain</h2>
+                  <span class="provider">Claude Code CLI</span>
+                </div>
+                <span class="status idle">idle</span>
+              </header>
+              <pre class="output" id="output-brain"></pre>
+              <footer>
+                <span id="meta-brain">No runs yet</span>
+              </footer>
+            </article>
+
+            <article class="agent-panel" data-agent="looper">
+              <header>
+                <div>
+                  <h2>Looper</h2>
+                  <span class="provider">Gemini CLI</span>
+                </div>
+                <span class="status idle">idle</span>
+              </header>
+              <pre class="output" id="output-looper"></pre>
+              <footer>
+                <span id="meta-looper">No runs yet</span>
+              </footer>
+            </article>
+
+            <article class="agent-panel" data-agent="coder">
+              <header>
+                <div>
+                  <h2>Coder</h2>
+                  <span class="provider">Codex CLI</span>
+                </div>
+                <span class="status idle">idle</span>
+              </header>
+              <pre class="output" id="output-coder"></pre>
+              <footer>
+                <span id="meta-coder">No runs yet</span>
+              </footer>
+            </article>
+          </section>
+        </section>
+
+        <section
+          id="tab-logs"
+          class="tab-view"
+          role="tabpanel"
+          aria-labelledby="tab-button-logs"
+          hidden
+        >
+          <section class="debug-panel">
+            <div class="debug-header">
+              <h2>Debug</h2>
+              <span id="debugCount">0 events</span>
             </div>
-            <span class="status idle">idle</span>
-          </header>
-          <pre class="output" id="output-coder"></pre>
-          <footer>
-            <span id="meta-coder">No runs yet</span>
-          </footer>
-        </article>
+            <div id="debugLog" class="debug-log"></div>
+          </section>
+        </section>
       </section>
 
       <aside class="side-panel">
@@ -87,14 +182,6 @@
               <button id="clearButton" type="button">Clear View</button>
             </div>
           </form>
-        </section>
-
-        <section class="debug-panel">
-          <div class="debug-header">
-            <h2>Debug</h2>
-            <span id="debugCount">0 events</span>
-          </div>
-          <div id="debugLog" class="debug-log"></div>
         </section>
       </aside>
     </main>

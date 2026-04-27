@@ -25,14 +25,42 @@ const userInputPanel = document.getElementById("userInputPanel");
 const userInputQuestion = document.getElementById("userInputQuestion");
 const userInputTasks = document.getElementById("userInputTasks");
 const continueChainButton = document.getElementById("continueChainButton");
+const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
+const tabViews = Array.from(document.querySelectorAll(".tab-view"));
+const operatorSystemStatus = document.getElementById("operatorSystemStatus");
+const operatorSystemDetail = document.getElementById("operatorSystemDetail");
+const operatorLastChainStatus = document.getElementById("operatorLastChainStatus");
+const operatorLastChainDetail = document.getElementById("operatorLastChainDetail");
+const operatorAgentHealthStatus = document.getElementById("operatorAgentHealthStatus");
+const operatorAgentHealthDetail = document.getElementById("operatorAgentHealthDetail");
+const operatorLastRouteStatus = document.getElementById("operatorLastRouteStatus");
+const operatorLastRouteDetail = document.getElementById("operatorLastRouteDetail");
+const operatorTokensStatus = document.getElementById("operatorTokensStatus");
+const operatorTokensDetail = document.getElementById("operatorTokensDetail");
 
 let eventCount = 0;
 let activeRuns = 0;
 let pendingUserInput = null;
+let streamConnected = false;
+let runTokenTotal = 0;
+let lastChainTokenTotal = 0;
+const agentHealthState = Object.fromEntries(
+  agentIds.map((id) => [
+    id,
+    {
+      runs: 0,
+      incidents: 0,
+      last: "idle"
+    }
+  ])
+);
 
 initialize();
 
 async function initialize() {
+  initializeTabs();
+  resetOperatorMetrics();
+
   const config = await getJson("/api/config");
   sessionLine.textContent = `${config.session.id} | ${config.session.path}`;
   modeBadge.textContent = config.mock ? "mock" : "real";
@@ -47,12 +75,20 @@ async function initialize() {
     panel.querySelector(".provider").textContent = agent.provider;
   }
 
+  setOperatorSystem("Connecting to event stream...", "Waiting for live SSE events.");
+
   const source = new EventSource("/api/events");
+  source.onopen = () => {
+    streamConnected = true;
+    setOperatorSystem(`Live stream connected${formatRunLoad()}`, "Listening for chain and run events.");
+  };
   source.onmessage = (message) => {
     const event = JSON.parse(message.data);
     handleEvent(event);
   };
   source.onerror = () => {
+    streamConnected = false;
+    setOperatorSystem(`Event stream disconnected${formatRunLoad()}`, "Connection lost. Waiting for automatic retry.");
     addDebugRow({
       type: "app:event-stream-error",
       ts: new Date().toISOString(),
@@ -100,6 +136,7 @@ clearButton.addEventListener("click", async () => {
   eventCount = 0;
   debugCount.textContent = "0 events";
   hideUserInputPanel();
+  resetOperatorMetrics();
   await fetch("/api/clear-view", { method: "POST" });
 });
 
@@ -155,6 +192,11 @@ function handleEvent(event) {
     setAgentStatus(event.agentId, "running");
     outputs[event.agentId].textContent = "";
     metas[event.agentId].textContent = `run ${event.runId}`;
+    if (agentHealthState[event.agentId]) {
+      agentHealthState[event.agentId].last = "running";
+      updateAgentHealthCard();
+    }
+    setOperatorSystem(`Live stream connected${formatRunLoad()}`, `${event.agentId} started run ${event.runId}`);
   }
 
   if (event.type === "run:stdout") {
@@ -167,13 +209,51 @@ function handleEvent(event) {
 
   if (event.type === "run:complete") {
     activeRuns = Math.max(0, activeRuns - 1);
-    setAgentStatus(event.agentId, event.incident ? "needs-attention" : "ok");
+    setAgentStatus(event.agentId, statusFromRunComplete(event));
     const schema = event.protocolOk ? `schema:${event.protocolSource}` : `schema:${event.protocolError}`;
-    metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema} | ${formatTokens(event.tokens)}`;
+    const attention = event.incident ? ` | ${event.incident.errorType}` : "";
+    metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema} | ${formatTokens(event.tokens)}${attention}`;
+    updateAgentHealthFromRun(event);
+    updateTokensFromRun(event);
+    setOperatorSystem(`Live stream connected${formatRunLoad()}`, `${event.agentId} completed in ${event.durationMs}ms`);
+  }
+
+  if (event.type === "chain:start") {
+    operatorLastChainStatus.textContent = `${event.chainId} started`;
+    operatorLastChainDetail.textContent = event.message || "Chain execution started.";
+  }
+
+  if (event.type === "chain:route") {
+    operatorLastRouteStatus.textContent = `${event.from} -> ${event.to}`;
+    operatorLastRouteDetail.textContent = `${event.chainId} | ${event.routedType || "unknown type"}`;
+  }
+
+  if (event.type === "chain:complete") {
+    operatorLastChainStatus.textContent = `${event.chainId} ${event.status || "complete"}`;
+    const total = event.totalTokens ? ` | tok:${formatNumber(event.totalTokens)}` : "";
+    operatorLastChainDetail.textContent = `${event.message || "Chain completed"}${total}`;
+    if (event.totalTokens) {
+      lastChainTokenTotal = Number(event.totalTokens || 0);
+      operatorTokensStatus.textContent = `chain:${formatNumber(lastChainTokenTotal)}`;
+      operatorTokensDetail.textContent = `${event.chainId} ${event.status || ""}`.trim();
+    }
+  }
+
+  if (event.type === "chain:user-input-needed") {
+    operatorLastChainStatus.textContent = `${event.chainId} user input needed`;
+    operatorLastChainDetail.textContent = event.message || "Chain blocked waiting for user input.";
   }
 
   if (event.type === "chain:user-input-needed") {
     showUserInputPanel(event);
+  }
+
+  if (event.type === "app:error" || event.type === "app:listen-error") {
+    setOperatorSystem(`System attention needed${formatRunLoad()}`, event.message || event.type);
+  }
+
+  if (event.type === "app:listening") {
+    setOperatorSystem(`Server listening${formatRunLoad()}`, event.url || "127.0.0.1");
   }
 
   if (event.type === "ui:clear-view") {
@@ -212,6 +292,87 @@ function hideUserInputPanel() {
   promptInput.placeholder = "";
 }
 
+function initializeTabs() {
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+  }
+  activateTab("tab-operator");
+}
+
+function activateTab(targetId) {
+  for (const button of tabButtons) {
+    const active = button.dataset.tabTarget === targetId;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  }
+
+  for (const view of tabViews) {
+    view.hidden = view.id !== targetId;
+  }
+}
+
+function resetOperatorMetrics() {
+  runTokenTotal = 0;
+  lastChainTokenTotal = 0;
+  for (const id of agentIds) {
+    agentHealthState[id] = {
+      runs: 0,
+      incidents: 0,
+      last: "idle"
+    };
+  }
+  operatorLastChainStatus.textContent = "No chains yet";
+  operatorLastChainDetail.textContent = "Waiting for chain:start";
+  operatorLastRouteStatus.textContent = "No routing yet";
+  operatorLastRouteDetail.textContent = "Waiting for chain:route";
+  operatorTokensStatus.textContent = "tok:0";
+  operatorTokensDetail.textContent = "No token reports yet";
+  updateAgentHealthCard();
+}
+
+function setOperatorSystem(status, detail) {
+  operatorSystemStatus.textContent = status;
+  operatorSystemDetail.textContent = detail;
+}
+
+function formatRunLoad() {
+  const label = activeRuns === 1 ? "run" : "runs";
+  return ` | active ${label}: ${activeRuns}`;
+}
+
+function updateAgentHealthFromRun(event) {
+  const health = agentHealthState[event.agentId];
+  if (!health) return;
+  health.runs += 1;
+  health.last = statusFromRunComplete(event);
+  if (event.incident) {
+    health.incidents += 1;
+  }
+  updateAgentHealthCard();
+}
+
+function updateAgentHealthCard() {
+  const states = agentIds.map((id) => agentHealthState[id].last);
+  const healthy = states.filter((state) => state === "ok" || state === "ok-warning" || state === "idle").length;
+  const running = states.filter((state) => state === "running").length;
+  const attention = states.filter((state) => state === "needs-attention" || state === "error").length;
+  operatorAgentHealthStatus.textContent = `${healthy}/${agentIds.length} healthy`;
+  operatorAgentHealthDetail.textContent = `running:${running} | attention:${attention}`;
+}
+
+function updateTokensFromRun(event) {
+  const total = Number(event.tokens?.total || 0);
+  if (total > 0) {
+    runTokenTotal += total;
+  }
+  if (lastChainTokenTotal > 0) {
+    operatorTokensStatus.textContent = `chain:${formatNumber(lastChainTokenTotal)}`;
+  } else {
+    operatorTokensStatus.textContent = `tok:${formatNumber(runTokenTotal)}`;
+  }
+  operatorTokensDetail.textContent = `${event.agentId} ${formatTokens(event.tokens)}`;
+}
+
 function appendOutput(agentId, text) {
   const output = outputs[agentId];
   if (!output) return;
@@ -225,6 +386,13 @@ function setAgentStatus(agentId, status) {
   const statusEl = panel.querySelector(".status");
   statusEl.textContent = status;
   statusEl.className = `status ${status}`;
+}
+
+function statusFromRunComplete(event) {
+  if (event.protocolOk && event.envelope && event.incident) return "ok-warning";
+  if (event.protocolOk && event.exitCode === 0) return "ok";
+  if (event.incident) return "needs-attention";
+  return event.exitCode === 0 ? "ok" : "error";
 }
 
 function selectedTargets() {
@@ -282,7 +450,8 @@ function summarizeEvent(event) {
     return `${event.chainId} ${request.question || event.message || "User input needed"}`;
   }
   if (event.type === "run:complete") {
-    return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} ${formatTokens(event.tokens)} incident=${event.incident?.incidentId || "none"}`;
+    const warning = event.incident ? ` warning=${event.incident.errorType}` : "";
+    return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} ${formatTokens(event.tokens)} incident=${event.incident?.incidentId || "none"}${warning}`;
   }
   if (event.type === "run:stdout" || event.type === "run:stderr") {
     const text = String(event.text || "").replace(/\s+/g, " ").trim();
