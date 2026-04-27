@@ -286,9 +286,42 @@ input {
   min-height: 0;
 }
 
+.chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chat-route-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid #9bd5b5;
+  border-radius: 8px;
+  color: var(--ok);
+  background: #edf9f2;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 #promptForm {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
   min-height: 0;
 }
 
@@ -322,24 +355,10 @@ input {
   padding-left: 18px;
 }
 
-.target-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.target-row label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fbfcfd;
-  color: var(--text);
-  font-size: 13px;
+.prompt-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 textarea {

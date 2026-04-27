@@ -1,4 +1,5 @@
 const agentIds = ["brain", "looper", "coder"];
+const chatTarget = ["brain"];
 const outputs = Object.fromEntries(
   agentIds.map((id) => [id, document.getElementById(`output-${id}`)])
 );
@@ -103,13 +104,13 @@ promptForm.addEventListener("submit", async (event) => {
   if (!message) return;
   await postPrompt("/api/prompt", {
     message,
-    targets: selectedTargets()
+    targets: chatTarget
   });
 });
 
 handshakeButton.addEventListener("click", async () => {
   await postPrompt("/api/handshake", {
-    targets: selectedTargets()
+    targets: agentIds
   });
 });
 
@@ -393,12 +394,6 @@ function statusFromRunComplete(event) {
   if (event.protocolOk && event.exitCode === 0) return "ok";
   if (event.incident) return "needs-attention";
   return event.exitCode === 0 ? "ok" : "error";
-}
-
-function selectedTargets() {
-  return Array.from(document.querySelectorAll("#targetRow input:checked")).map(
-    (input) => input.value
-  );
 }
 
 function addDebugRow(event) {

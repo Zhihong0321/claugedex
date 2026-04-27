@@ -5,7 +5,7 @@ Prototype CLI bridge for Claude, Gemini, and Codex.
 ## v0.0.1 Goal
 
 - Show three agent panes: Brain, Looper, and Coder.
-- Send one prompt to selected CLI agents.
+- Send direct chat prompts to Brain.
 - Capture stdout, stderr, exit code, timing, and schema parse status.
 - Persist every run into a session folder for debugging.
 
@@ -39,6 +39,8 @@ Coder now runs with `workspace-write` access, so this route can edit files insid
 Brain must include what to build, how to build it, success criteria, and a local test plan when it passes work to Looper. The app injects detected local validation context, including package scripts and environment setup signals, so Brain can distinguish tests that can run locally from checks that require user-approved setup. Looper is the trusted local validation authority for the chain and returns the final validation result to the app.
 
 When a chain is blocked on permission or missing user input, the response schema uses `user_input_needed: true`, a `user_input_request` object, and `next_action: "USER_INPUT_NEEDED"` when that action is allowed. The app emits `chain:user-input-needed` and shows a feedback panel so the user can answer and continue through Full Chain.
+
+The sidebar chat is a Brain inbox. Looper and Coder are reached through Test Chain or Full Chain routing, not direct chat targeting.
 
 ## Run
 

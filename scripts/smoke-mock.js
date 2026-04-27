@@ -45,6 +45,17 @@ async function main() {
     throw new Error(`Mock agents failed: ${bad.map((item) => item.agentId).join(", ")}`);
   }
 
+  const brainOnly = await postJson("/api/prompt", {
+    message: "Mock direct Brain chat",
+    targets: ["brain"]
+  });
+  if (!brainOnly.ok || brainOnly.results?.length !== 1) {
+    throw new Error("Direct Brain chat did not return exactly one result");
+  }
+  if (brainOnly.results[0]?.agentId !== "brain" || !brainOnly.results[0]?.protocolOk) {
+    throw new Error("Direct Brain chat did not return a valid Brain result");
+  }
+
   const chain = await postJson("/api/full-chain", {
     message: "Mock full-chain implementation test"
   });

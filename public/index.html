@@ -163,7 +163,13 @@
 
       <aside class="side-panel">
         <section class="chat-panel">
-          <h2>Chat</h2>
+          <div class="chat-header">
+            <div>
+              <h2>Brain Inbox</h2>
+              <p>Direct messages go to Brain.</p>
+            </div>
+            <span class="chat-route-badge">Brain</span>
+          </div>
           <div id="userInputPanel" class="user-input-panel" hidden>
             <strong>User input needed</strong>
             <p id="userInputQuestion"></p>
@@ -171,14 +177,10 @@
             <button id="continueChainButton" type="button">Send Feedback to Full Chain</button>
           </div>
           <form id="promptForm">
-            <div class="target-row" id="targetRow">
-              <label><input type="checkbox" value="brain" checked /> Brain</label>
-              <label><input type="checkbox" value="looper" checked /> Looper</label>
-              <label><input type="checkbox" value="coder" checked /> Coder</label>
-            </div>
-            <textarea id="promptInput" rows="5" autocomplete="off">hi</textarea>
+            <label class="prompt-label" for="promptInput">Message</label>
+            <textarea id="promptInput" rows="8" autocomplete="off">hi</textarea>
             <div class="button-row">
-              <button id="sendButton" type="submit">Send</button>
+              <button id="sendButton" type="submit">Send to Brain</button>
               <button id="clearButton" type="button">Clear View</button>
             </div>
           </form>
