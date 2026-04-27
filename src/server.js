@@ -78,6 +78,15 @@ const server = http.createServer(async (req, res) => {
       return runTestChain(res);
     }
 
+    if (req.method === "POST" && url.pathname === "/api/full-chain") {
+      const body = await readJson(req);
+      const message = String(body.message || "").trim();
+      if (!message) {
+        return sendJson(res, { error: "MESSAGE_REQUIRED" }, 400);
+      }
+      return runFullChain(res, message);
+    }
+
     if (req.method === "POST" && url.pathname === "/api/clear-view") {
       emit(session.appendEvent({ type: "ui:clear-view" }));
       return sendJson(res, { ok: true });
@@ -256,6 +265,177 @@ async function runTestChain(res) {
   return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult } });
 }
 
+async function runFullChain(res, userMessage) {
+  const chainId = makeChainId();
+
+  emit(
+    session.appendEvent({
+      type: "chain:start",
+      chainId,
+      route: ["brain", "looper", "coder", "app"],
+      message: "Full Chain started: Brain -> Looper -> Coder -> App"
+    })
+  );
+
+  const brainResult = await runAgent({
+    agent: config.agents.brain,
+    userMessage,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "looper",
+      type: "PLAN_TO_LOOPER",
+      nextAction: "PASS_TO_LOOPER",
+      messageHint: "short implementation plan for Looper",
+      extraFields: {
+        plan: ["ordered implementation steps"],
+        success_criteria: ["checklist item"],
+        constraints: ["implementation constraint"],
+        risks: ["likely risk"]
+      }
+    }
+  });
+
+  if (!isUsableAgentResult(brainResult) || !envelopeMatches(brainResult.envelope, {
+    from: "brain",
+    to: "looper",
+    type: "PLAN_TO_LOOPER",
+    status: "OK",
+    next_action: "PASS_TO_LOOPER"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Brain did not return PLAN_TO_LOOPER.", {
+      brainRunId: brainResult.runId,
+      brainIncident: brainResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult } }, 502);
+  }
+
+  emitRoute(chainId, "brain", "looper", brainResult);
+
+  const looperPrompt = [
+    "ClauGeDex Full Chain.",
+    "You are receiving Brain's routed plan through the app.",
+    "Convert Brain's plan into one precise task for Coder.",
+    "Current safety mode: Coder is read-only. Ask Coder to produce a concrete implementation proposal or patch text, not to edit files directly.",
+    "Keep scope tight. Map Brain's plan to actual files if they are known.",
+    "",
+    "Brain envelope:",
+    JSON.stringify(brainResult.envelope, null, 2)
+  ].join("\n");
+
+  const looperResult = await runAgent({
+    agent: config.agents.looper,
+    userMessage: looperPrompt,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "coder",
+      type: "TASK_TO_CODER",
+      nextAction: "PASS_TO_CODER",
+      messageHint: "precise Coder task ready",
+      extraFields: {
+        task: "precise coder task",
+        target_files: ["file path"],
+        constraints: ["implementation constraint"],
+        success_criteria: ["checklist item"]
+      }
+    }
+  });
+
+  if (!isUsableAgentResult(looperResult) || !envelopeMatches(looperResult.envelope, {
+    from: "looper",
+    to: "coder",
+    type: "TASK_TO_CODER",
+    status: "OK",
+    next_action: "PASS_TO_CODER"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Looper did not return TASK_TO_CODER.", {
+      brainRunId: brainResult.runId,
+      looperRunId: looperResult.runId,
+      looperIncident: looperResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult, looper: looperResult } }, 502);
+  }
+
+  emitRoute(chainId, "looper", "coder", looperResult);
+
+  const coderPrompt = [
+    "ClauGeDex Full Chain.",
+    "You are receiving Looper's routed task through the app.",
+    "Current safety mode: read-only. Do not edit files directly.",
+    "Execute as far as read-only mode allows: inspect relevant files if needed, then return a concrete implementation result, proposed patch, or clear blocker.",
+    "",
+    "Looper envelope:",
+    JSON.stringify(looperResult.envelope, null, 2)
+  ].join("\n");
+
+  const coderResult = await runAgent({
+    agent: config.agents.coder,
+    userMessage: coderPrompt,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "app",
+      type: "CODER_RESULT",
+      nextAction: "PASS_TO_APP",
+      messageHint: "Coder completed read-only execution result",
+      extraFields: {
+        chain_id: chainId,
+        result_summary: "short result summary",
+        files_considered: ["file path"],
+        proposed_changes: ["change summary"],
+        validation_notes: ["validation note"]
+      }
+    }
+  });
+
+  if (!isUsableAgentResult(coderResult) || !envelopeMatches(coderResult.envelope, {
+    from: "coder",
+    to: "app",
+    type: "CODER_RESULT",
+    status: "OK",
+    next_action: "PASS_TO_APP"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Coder did not return CODER_RESULT.", {
+      brainRunId: brainResult.runId,
+      looperRunId: looperResult.runId,
+      coderRunId: coderResult.runId,
+      coderIncident: coderResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult, looper: looperResult, coder: coderResult } }, 502);
+  }
+
+  emitRoute(chainId, "coder", "app", coderResult);
+
+  const completed = completeChain(chainId, "OK", "Full Chain succeeded: Brain -> Looper -> Coder -> App.", {
+    brainRunId: brainResult.runId,
+    looperRunId: looperResult.runId,
+    coderRunId: coderResult.runId,
+    totalTokens: sumResultTokens([brainResult, looperResult, coderResult])
+  });
+  return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult, coder: coderResult } });
+}
+
+function emitRoute(chainId, from, to, result) {
+  emit(
+    session.appendEvent({
+      type: "chain:route",
+      chainId,
+      from,
+      to,
+      sourceRunId: result.runId,
+      routedType: result.envelope?.type,
+      message: `${from} output routed to ${to}`
+    })
+  );
+}
+
 function completeChain(chainId, status, message, details = {}) {
   const event = session.appendEvent({
     type: "chain:complete",
@@ -275,6 +455,10 @@ function isUsableAgentResult(result) {
 function envelopeMatches(envelope, expected) {
   if (!envelope) return false;
   return Object.entries(expected).every(([key, value]) => envelope[key] === value);
+}
+
+function sumResultTokens(results) {
+  return results.reduce((total, result) => total + Number(result.tokens?.total || 0), 0);
 }
 
 function makeChainId() {

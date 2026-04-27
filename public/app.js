@@ -13,6 +13,7 @@ const promptForm = document.getElementById("promptForm");
 const promptInput = document.getElementById("promptInput");
 const handshakeButton = document.getElementById("handshakeButton");
 const testChainButton = document.getElementById("testChainButton");
+const fullChainButton = document.getElementById("fullChainButton");
 const sendButton = document.getElementById("sendButton");
 const clearButton = document.getElementById("clearButton");
 const debugLog = document.getElementById("debugLog");
@@ -68,6 +69,19 @@ handshakeButton.addEventListener("click", async () => {
 
 testChainButton.addEventListener("click", async () => {
   await postPrompt("/api/test-chain", {});
+});
+
+fullChainButton.addEventListener("click", async () => {
+  const message = promptInput.value.trim();
+  if (!message) {
+    addDebugRow({
+      type: "ui:request-error",
+      ts: new Date().toISOString(),
+      message: "Message required for Run Full Chain"
+    });
+    return;
+  }
+  await postPrompt("/api/full-chain", { message });
 });
 
 clearButton.addEventListener("click", async () => {
@@ -185,7 +199,8 @@ function summarizeEvent(event) {
     return `${event.chainId} ${event.from}->${event.to} ${event.routedType}`;
   }
   if (event.type === "chain:complete") {
-    return `${event.chainId} ${event.status} ${event.message}`;
+    const tokens = event.totalTokens ? ` tok:${formatNumber(event.totalTokens)}` : "";
+    return `${event.chainId} ${event.status} ${event.message}${tokens}`;
   }
   if (event.type === "run:complete") {
     return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} ${formatTokens(event.tokens)} incident=${event.incident?.incidentId || "none"}`;
@@ -202,6 +217,7 @@ function setBusy(busy) {
   sendButton.disabled = busy;
   handshakeButton.disabled = busy;
   testChainButton.disabled = busy;
+  fullChainButton.disabled = busy;
 }
 
 function formatTokens(tokens) {

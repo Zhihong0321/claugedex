@@ -19,6 +19,22 @@ Brain -> Looper -> App
 
 Brain must return `PLAN_TO_LOOPER`. The app routes that envelope into Looper. Looper must return `CHAIN_TEST_SUCCESS` to the app. Success returns to the app first because the app is the protocol bridge; Brain final review comes later.
 
+## Full Chain
+
+The `Run Full Chain` button sends the current prompt through:
+
+```text
+Brain -> Looper -> Coder -> App
+```
+
+Expected route types:
+
+- Brain: `PLAN_TO_LOOPER`
+- Looper: `TASK_TO_CODER`
+- Coder: `CODER_RESULT`
+
+Coder currently runs in read-only mode, so this proves routing and can return proposed implementation details, but it does not apply file edits.
+
 ## Run
 
 ```powershell
