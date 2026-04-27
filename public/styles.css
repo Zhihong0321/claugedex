@@ -135,7 +135,7 @@ input {
   background: var(--panel);
 }
 
-.operator-card:last-child {
+.operator-card--wide {
   grid-column: 1 / -1;
 }
 
@@ -152,6 +152,82 @@ input {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.result-review-fields {
+  margin-top: 10px;
+}
+
+.result-review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.result-review-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.rr-status-ok {
+  color: var(--ok);
+  border-color: #9bd5b5;
+  background: #edf9f2;
+}
+
+.rr-status-fail {
+  color: var(--bad);
+  border-color: #f0aaa5;
+  background: #fff1f0;
+}
+
+.rr-status-warn {
+  color: var(--warn);
+  border-color: #f2c46d;
+  background: #fff8ea;
+}
+
+.rr-status-input {
+  color: #095a9c;
+  border-color: #9cc8eb;
+  background: #eff8ff;
+}
+
+.result-review-fields dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.result-review-fields dt,
+.result-review-fields dd {
+  margin: 0;
+}
+
+.result-review-fields dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.result-review-fields dd {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
@@ -486,7 +562,7 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .operator-card:last-child {
+  .operator-card--wide {
     grid-column: auto;
   }
 

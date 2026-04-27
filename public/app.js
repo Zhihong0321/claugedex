@@ -39,6 +39,30 @@ const operatorLastRouteStatus = document.getElementById("operatorLastRouteStatus
 const operatorLastRouteDetail = document.getElementById("operatorLastRouteDetail");
 const operatorTokensStatus = document.getElementById("operatorTokensStatus");
 const operatorTokensDetail = document.getElementById("operatorTokensDetail");
+const resultReviewStatus = document.getElementById("resultReviewStatus");
+const resultReviewDetail = document.getElementById("resultReviewDetail");
+const resultReviewBody = document.getElementById("resultReviewBody");
+
+const RESULT_PLACEHOLDER_VALUES = new Set([
+  "none",
+  "file path",
+  "change summary",
+  "short result summary",
+  "validation note",
+  "local command or manual check",
+  "passed | failed | skipped",
+  "missing setup or unsafe requirement",
+  "short evidence",
+  "permissioned setup task, or none",
+  "why user input is needed, or none",
+  "exact question for the user, or none",
+  "suggested answer option, or none",
+  "what the user should do next, or none",
+  "test result summary",
+  "blocked test summary",
+  "criterion result",
+  "risk"
+]);
 
 let eventCount = 0;
 let activeRuns = 0;
@@ -46,6 +70,12 @@ let pendingUserInput = null;
 let streamConnected = false;
 let runTokenTotal = 0;
 let lastChainTokenTotal = 0;
+let lastCoderEnvelope = null;
+let lastValidationEnvelope = null;
+let lastCoderRunReview = null;
+let lastValidationRunReview = null;
+let lastCompletedChainEvent = null;
+let resultReviewInputNeeded = false;
 const agentHealthState = Object.fromEntries(
   agentIds.map((id) => [
     id,
@@ -223,6 +253,7 @@ function handleEvent(event) {
     const schema = event.protocolOk ? `schema:${event.protocolSource}` : `schema:${event.protocolError}`;
     const attention = event.incident ? ` | ${event.incident.errorType}` : "";
     metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema} | ${formatTokens(event.tokens)}${attention}`;
+    captureResultEnvelope(event);
     updateAgentHealthFromRun(event);
     updateTokensFromRun(event);
     setOperatorSystem(`Live stream connected${formatRunLoad()}`, `${event.agentId} completed in ${event.durationMs}ms`);
@@ -247,11 +278,13 @@ function handleEvent(event) {
       operatorTokensStatus.textContent = `chain:${formatNumber(lastChainTokenTotal)}`;
       operatorTokensDetail.textContent = `${event.chainId} ${event.status || ""}`.trim();
     }
+    renderResultReview(event);
   }
 
   if (event.type === "chain:user-input-needed") {
     operatorLastChainStatus.textContent = `${event.chainId} user input needed`;
     operatorLastChainDetail.textContent = event.message || "Chain blocked waiting for user input.";
+    markResultReviewInputNeeded(event);
   }
 
   if (event.type === "chain:user-input-needed") {
@@ -324,6 +357,12 @@ function activateTab(targetId) {
 function resetOperatorMetrics() {
   runTokenTotal = 0;
   lastChainTokenTotal = 0;
+  lastCoderEnvelope = null;
+  lastValidationEnvelope = null;
+  lastCoderRunReview = null;
+  lastValidationRunReview = null;
+  lastCompletedChainEvent = null;
+  resultReviewInputNeeded = false;
   for (const id of agentIds) {
     agentHealthState[id] = {
       runs: 0,
@@ -337,7 +376,220 @@ function resetOperatorMetrics() {
   operatorLastRouteDetail.textContent = "Waiting for chain:route";
   operatorTokensStatus.textContent = "tok:0";
   operatorTokensDetail.textContent = "No token reports yet";
+  resultReviewStatus.textContent = "Waiting for chain to complete...";
+  resultReviewDetail.textContent = "No chain result yet";
+  resultReviewBody.textContent = "";
   updateAgentHealthCard();
+}
+
+function captureResultEnvelope(event) {
+  if (!event.envelope || typeof event.envelope !== "object") return;
+
+  const runReview = {
+    protocolOk: Boolean(event.protocolOk),
+    hasIncident: Boolean(event.incident),
+    incidentType: event.incident?.errorType || ""
+  };
+
+  if (event.envelope.type === "CODER_RESULT") {
+    lastCoderEnvelope = event.envelope;
+    lastCoderRunReview = runReview;
+  }
+
+  if (event.envelope.type === "LOOPER_VALIDATION_RESULT") {
+    lastValidationEnvelope = event.envelope;
+    lastValidationRunReview = runReview;
+  }
+}
+
+function renderResultReview(event) {
+  lastCompletedChainEvent = event;
+
+  resultReviewStatus.textContent = `${event.chainId} ${event.status || "complete"}`;
+  const details = [event.message || "Chain completed."];
+  if (event.totalTokens) details.push(`tok:${formatNumber(event.totalTokens)}`);
+  resultReviewDetail.textContent = details.join(" | ");
+  resultReviewBody.textContent = "";
+
+  const badges = document.createElement("div");
+  badges.className = "result-review-badges";
+  badges.append(createResultBadge(`CHAIN ${event.status || "UNKNOWN"}`, badgeClassForChainStatus(event.status)));
+
+  const validationStatus = pickMeaningfulText(lastValidationEnvelope?.validation_status);
+  if (validationStatus) {
+    badges.append(
+      createResultBadge(
+        `VALIDATION ${validationStatus}`,
+        badgeClassForValidationStatus(validationStatus)
+      )
+    );
+  }
+
+  appendRunReviewBadge(badges, "CODER", lastCoderRunReview);
+  appendRunReviewBadge(badges, "VALIDATION RUN", lastValidationRunReview);
+
+  if (resultReviewInputNeeded || event.userInputNeeded) {
+    badges.append(createResultBadge("USER INPUT NEEDED", "rr-status-input"));
+  }
+
+  resultReviewBody.append(badges);
+
+  const fields = document.createElement("dl");
+  appendReviewField(fields, "Chain ID", event.chainId);
+  appendReviewField(fields, "Chain Status", event.status);
+  appendReviewField(fields, "Validation", validationStatus);
+
+  if (event.totalTokens) {
+    appendReviewField(fields, "Total Tokens", formatNumber(event.totalTokens));
+  }
+
+  appendReviewField(fields, "Coder Summary", pickMeaningfulText(lastCoderEnvelope?.result_summary));
+  appendReviewListField(fields, "Files Changed", lastCoderEnvelope?.files_changed);
+  appendReviewListField(fields, "Files Considered", lastCoderEnvelope?.files_considered);
+  appendReviewListField(fields, "Changes Made", lastCoderEnvelope?.changes_made);
+  appendReviewListField(fields, "Tests Run", formatCoderTestsRun(lastCoderEnvelope?.tests_run));
+  appendReviewListField(fields, "Tests Blocked", formatCoderTestsBlocked(lastCoderEnvelope?.tests_blocked));
+
+  appendReviewField(fields, "Trusted Result", pickMeaningfulText(lastValidationEnvelope?.trusted_test_result));
+  appendReviewListField(fields, "Validation Tests", lastValidationEnvelope?.tests_run);
+  appendReviewListField(fields, "Validation Blocked", lastValidationEnvelope?.tests_blocked);
+  appendReviewListField(fields, "Matched Criteria", lastValidationEnvelope?.matched_success_criteria);
+  appendReviewListField(fields, "Remaining Risks", lastValidationEnvelope?.remaining_risks);
+
+  if (fields.children.length > 0) {
+    resultReviewBody.append(fields);
+  }
+}
+
+function markResultReviewInputNeeded(event) {
+  resultReviewInputNeeded = true;
+
+  if (lastCompletedChainEvent) {
+    renderResultReview(lastCompletedChainEvent);
+    return;
+  }
+
+  resultReviewStatus.textContent = `${event.chainId} user input needed`;
+  resultReviewDetail.textContent = event.message || "Chain blocked waiting for user input.";
+  resultReviewBody.textContent = "";
+
+  const badges = document.createElement("div");
+  badges.className = "result-review-badges";
+  badges.append(createResultBadge("USER INPUT NEEDED", "rr-status-input"));
+  resultReviewBody.append(badges);
+}
+
+function appendRunReviewBadge(container, label, runReview) {
+  if (!runReview) return;
+
+  if (runReview.protocolOk && runReview.hasIncident) {
+    const detail = runReview.incidentType ? ` (${runReview.incidentType})` : "";
+    container.append(createResultBadge(`${label} WARNING${detail}`, "rr-status-warn"));
+    return;
+  }
+
+  if (runReview.protocolOk) {
+    container.append(createResultBadge(`${label} OK`, "rr-status-ok"));
+    return;
+  }
+
+  container.append(createResultBadge(`${label} FAIL`, "rr-status-fail"));
+}
+
+function createResultBadge(text, className) {
+  const badge = document.createElement("span");
+  badge.className = `result-review-badge ${className}`;
+  badge.textContent = text;
+  return badge;
+}
+
+function badgeClassForChainStatus(status) {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (normalized === "OK" || normalized === "PASS" || normalized === "SUCCESS") return "rr-status-ok";
+  if (normalized === "FAILED" || normalized === "FAIL" || normalized === "ERROR") return "rr-status-fail";
+  if (normalized === "BLOCKED") return "rr-status-input";
+  return "rr-status-warn";
+}
+
+function badgeClassForValidationStatus(status) {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (normalized === "PASS") return "rr-status-ok";
+  if (normalized === "FAIL") return "rr-status-fail";
+  if (normalized === "BLOCKED") return "rr-status-input";
+  return "rr-status-warn";
+}
+
+function appendReviewField(list, label, value) {
+  const text = pickMeaningfulText(value);
+  if (!text) return;
+
+  const dt = document.createElement("dt");
+  dt.textContent = label;
+  const dd = document.createElement("dd");
+  dd.textContent = text;
+  list.append(dt, dd);
+}
+
+function appendReviewListField(list, label, values) {
+  const lines = normalizeReviewList(values);
+  if (lines.length === 0) return;
+  appendReviewField(list, label, lines.join("\n"));
+}
+
+function normalizeReviewList(values) {
+  if (Array.isArray(values)) {
+    return values
+      .map((value) => pickMeaningfulText(value))
+      .filter(Boolean);
+  }
+  const single = pickMeaningfulText(values);
+  return single ? [single] : [];
+}
+
+function formatCoderTestsRun(testsRun) {
+  if (!Array.isArray(testsRun)) return [];
+  return testsRun
+    .map((test) => {
+      if (!test || typeof test !== "object") return pickMeaningfulText(test);
+      const command = pickMeaningfulText(test.command);
+      const status = pickMeaningfulText(test.status);
+      const evidence = pickMeaningfulText(test.evidence);
+      if (!command && !status && !evidence) return "";
+      const parts = [];
+      if (command) parts.push(command);
+      if (status) parts.push(`[${status}]`);
+      if (evidence) parts.push(`- ${evidence}`);
+      return parts.join(" ");
+    })
+    .filter(Boolean);
+}
+
+function formatCoderTestsBlocked(testsBlocked) {
+  if (!Array.isArray(testsBlocked)) return [];
+  return testsBlocked
+    .map((test) => {
+      if (!test || typeof test !== "object") return pickMeaningfulText(test);
+      const command = pickMeaningfulText(test.command);
+      const reason = pickMeaningfulText(test.reason);
+      if (!command && !reason) return "";
+      const parts = [];
+      if (command) parts.push(command);
+      if (reason) parts.push(`- ${reason}`);
+      return parts.join(" ");
+    })
+    .filter(Boolean);
+}
+
+function pickMeaningfulText(value) {
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value !== "string") return "";
+
+  const text = value.trim();
+  if (!text) return "";
+  if (RESULT_PLACEHOLDER_VALUES.has(text.toLowerCase())) return "";
+  return text;
 }
 
 function setOperatorSystem(status, detail) {
