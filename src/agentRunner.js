@@ -58,6 +58,8 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
     stdinPrompt,
     promptEnv: agent.promptEnv || null,
     shell,
+    sandboxMode: agent.sandboxMode || null,
+    writeAccess: Boolean(agent.writeAccess),
     promptPath
   });
   emit(startEvent);

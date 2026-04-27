@@ -39,12 +39,14 @@
       "provider": "Codex CLI",
       "enabled": true,
       "command": "codex",
-      "args": ["exec", "-m", "gpt-5.3-codex", "--sandbox", "read-only", "--json", "-C", "{{cwd}}"],
+      "args": ["exec", "-m", "gpt-5.3-codex", "--sandbox", "workspace-write", "--json", "-C", "{{cwd}}"],
       "cwd": ".",
+      "sandboxMode": "workspace-write",
+      "writeAccess": true,
       "stdinPrompt": true,
       "shell": true,
       "timeoutMs": 240000,
-      "contextPrompt": "You are Coder in ClauGeDex. You execute only the precise task you are given. For prototype v0.0.1, answer the user's prompt briefly without editing files and wrap your final response in the required ClauGeDex response markers as valid JSON."
+      "contextPrompt": "You are Coder in ClauGeDex. You execute only the precise task you are given. You may edit files inside the selected working folder when Looper gives a clear implementation task. Keep changes scoped, preserve unrelated user edits, run relevant validation when possible, and wrap your final response in the required ClauGeDex response markers as valid JSON."
     }
   }
 }

@@ -20,6 +20,7 @@ const debugLog = document.getElementById("debugLog");
 const debugCount = document.getElementById("debugCount");
 const sessionLine = document.getElementById("sessionLine");
 const modeBadge = document.getElementById("modeBadge");
+const coderModeBadge = document.getElementById("coderModeBadge");
 
 let eventCount = 0;
 let activeRuns = 0;
@@ -30,6 +31,10 @@ async function initialize() {
   const config = await getJson("/api/config");
   sessionLine.textContent = `${config.session.id} | ${config.session.path}`;
   modeBadge.textContent = config.mock ? "mock" : "real";
+  const coder = config.agents.coder;
+  coderModeBadge.textContent = coder?.writeAccess
+    ? `coder:${coder.sandboxMode || "write"}`
+    : `coder:${coder?.sandboxMode || "read-only"}`;
 
   for (const [id, agent] of Object.entries(config.agents)) {
     const panel = panels[id];
@@ -190,10 +195,13 @@ function addDebugRow(event) {
 
 function summarizeEvent(event) {
   if (event.type === "run:start") {
-    return `${event.agentId} ${event.command} ${event.argsPreview?.join(" ") || ""}`;
+    const mode = event.sandboxMode ? ` mode=${event.sandboxMode}` : "";
+    const write = event.writeAccess ? " write=on" : "";
+    return `${event.agentId}${mode}${write} ${event.command} ${event.argsPreview?.join(" ") || ""}`;
   }
   if (event.type === "chain:start") {
-    return `${event.chainId} ${event.message}`;
+    const coderMode = event.coderMode ? ` coder=${event.coderMode}` : "";
+    return `${event.chainId} ${event.message}${coderMode}`;
   }
   if (event.type === "chain:route") {
     return `${event.chainId} ${event.from}->${event.to} ${event.routedType}`;

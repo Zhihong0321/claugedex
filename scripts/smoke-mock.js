@@ -3,11 +3,15 @@ const { spawn } = require("child_process");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
-const port = 3737;
+const port = Number(process.env.SMOKE_PORT || 4737);
 const server = spawn(process.execPath, ["src/server.js", "--mock"], {
   cwd: rootDir,
   shell: false,
-  stdio: ["ignore", "pipe", "pipe"]
+  stdio: ["ignore", "pipe", "pipe"],
+  env: {
+    ...process.env,
+    PORT: String(port)
+  }
 });
 
 let output = "";
@@ -40,8 +44,19 @@ async function main() {
   if (bad.length) {
     throw new Error(`Mock agents failed: ${bad.map((item) => item.agentId).join(", ")}`);
   }
+
+  const chain = await postJson("/api/full-chain", {
+    message: "Mock full-chain implementation test"
+  });
+  if (!chain.ok || chain.chain?.status !== "OK") {
+    throw new Error(`Mock full chain failed: ${JSON.stringify(chain.chain || chain)}`);
+  }
+  if (!chain.results?.coder?.envelope?.changes_made) {
+    throw new Error("Mock Coder did not return edit-mode result fields");
+  }
+
   cleanup();
-  console.log("Mock smoke passed: 3 agents responded with valid ClauGeDex schema.");
+  console.log("Mock smoke passed: handshake and full chain returned valid ClauGeDex schema.");
 }
 
 function waitForListening() {

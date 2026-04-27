@@ -267,13 +267,15 @@ async function runTestChain(res) {
 
 async function runFullChain(res, userMessage) {
   const chainId = makeChainId();
+  const coderMode = getCoderMode();
 
   emit(
     session.appendEvent({
       type: "chain:start",
       chainId,
       route: ["brain", "looper", "coder", "app"],
-      message: "Full Chain started: Brain -> Looper -> Coder -> App"
+      message: "Full Chain started: Brain -> Looper -> Coder -> App",
+      coderMode
     })
   );
 
@@ -318,7 +320,7 @@ async function runFullChain(res, userMessage) {
     "ClauGeDex Full Chain.",
     "You are receiving Brain's routed plan through the app.",
     "Convert Brain's plan into one precise task for Coder.",
-    "Current safety mode: Coder is read-only. Ask Coder to produce a concrete implementation proposal or patch text, not to edit files directly.",
+    `Current Coder mode: ${coderMode}. Ask Coder to implement directly when the task is precise enough, and to stop with a clear blocker when it is not.`,
     "Keep scope tight. Map Brain's plan to actual files if they are known.",
     "",
     "Brain envelope:",
@@ -366,8 +368,10 @@ async function runFullChain(res, userMessage) {
   const coderPrompt = [
     "ClauGeDex Full Chain.",
     "You are receiving Looper's routed task through the app.",
-    "Current safety mode: read-only. Do not edit files directly.",
-    "Execute as far as read-only mode allows: inspect relevant files if needed, then return a concrete implementation result, proposed patch, or clear blocker.",
+    `Current Coder mode: ${coderMode}.`,
+    "Implement the routed task directly when it is precise enough and inside the working folder.",
+    "Keep changes scoped to the task. Preserve unrelated user edits. Run relevant validation when possible.",
+    "If the task is unsafe, ambiguous, or outside the working folder, do not guess; return a clear blocker.",
     "",
     "Looper envelope:",
     JSON.stringify(looperResult.envelope, null, 2)
@@ -388,8 +392,9 @@ async function runFullChain(res, userMessage) {
       extraFields: {
         chain_id: chainId,
         result_summary: "short result summary",
+        files_changed: ["file path"],
         files_considered: ["file path"],
-        proposed_changes: ["change summary"],
+        changes_made: ["change summary"],
         validation_notes: ["validation note"]
       }
     }
@@ -459,6 +464,12 @@ function envelopeMatches(envelope, expected) {
 
 function sumResultTokens(results) {
   return results.reduce((total, result) => total + Number(result.tokens?.total || 0), 0);
+}
+
+function getCoderMode() {
+  const coder = config.agents.coder || {};
+  const sandboxMode = coder.sandboxMode || "unspecified";
+  return coder.writeAccess ? `edit-enabled:${sandboxMode}` : `read-only:${sandboxMode}`;
 }
 
 function makeChainId() {

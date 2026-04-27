@@ -33,7 +33,7 @@ Expected route types:
 - Looper: `TASK_TO_CODER`
 - Coder: `CODER_RESULT`
 
-Coder currently runs in read-only mode, so this proves routing and can return proposed implementation details, but it does not apply file edits.
+Coder now runs with `workspace-write` access, so this route can edit files inside the selected working folder when Looper sends a precise implementation task. If the task is ambiguous or outside the working folder, Coder should return a blocker instead of guessing.
 
 ## Run
 
@@ -79,7 +79,7 @@ Current defaults:
 
 - Brain: `claude -p --output-format json` with prompt on stdin
 - Looper: direct Node launch of the Gemini CLI script with `--prompt "{{prompt}}" --output-format json`
-- Coder: `codex exec -m gpt-5.3-codex --sandbox read-only --json -C "{{cwd}}"` with prompt on stdin
+- Coder: `codex exec -m gpt-5.3-codex --sandbox workspace-write --json -C "{{cwd}}"` with prompt on stdin
 
 The app injects the role context, user prompt, session id, run id, and schema instructions into stdin or `{{prompt}}`, depending on the adapter. Structured CLI output is normalized back into ClauGeDex protocol text before schema parsing.
 

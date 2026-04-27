@@ -59,15 +59,16 @@ function inferExtraFields(type) {
     return {
       task: "Mock Looper task for Coder",
       target_files: ["mock.txt"],
-      constraints: ["Read-only mock constraint"],
+      constraints: ["Mock mode does not edit real files"],
       success_criteria: ["Mock Coder returns CODER_RESULT"]
     };
   }
   if (type === "CODER_RESULT") {
     return {
       result_summary: "Mock Coder result",
+      files_changed: [],
       files_considered: ["mock.txt"],
-      proposed_changes: ["No real changes in mock mode"],
+      changes_made: ["No real changes in mock mode"],
       validation_notes: ["Mock validation passed"]
     };
   }

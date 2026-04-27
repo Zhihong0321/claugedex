@@ -15,6 +15,8 @@ function loadConfig(rootDir, argv = []) {
       delete agent.promptEnv;
       agent.shell = false;
       agent.timeoutMs = 30000;
+      agent.sandboxMode = "mock";
+      agent.writeAccess = false;
       agent.mock = true;
     }
   }
@@ -43,6 +45,8 @@ function publicConfig(config, meta) {
           command: agent.command,
           args: agent.args,
           cwd: agent.cwd,
+          sandboxMode: agent.sandboxMode || null,
+          writeAccess: Boolean(agent.writeAccess),
           timeoutMs: agent.timeoutMs,
           mock: Boolean(agent.mock)
         }
