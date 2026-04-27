@@ -24,7 +24,7 @@ Brain must return `PLAN_TO_LOOPER`. The app routes that envelope into Looper. Lo
 The `Run Full Chain` button sends the current prompt through:
 
 ```text
-Brain -> Looper -> Coder -> App
+Brain -> Looper -> Coder -> Looper -> App
 ```
 
 Expected route types:
@@ -32,8 +32,11 @@ Expected route types:
 - Brain: `PLAN_TO_LOOPER`
 - Looper: `TASK_TO_CODER`
 - Coder: `CODER_RESULT`
+- Looper: `LOOPER_VALIDATION_RESULT`
 
 Coder now runs with `workspace-write` access, so this route can edit files inside the selected working folder when Looper sends a precise implementation task. If the task is ambiguous or outside the working folder, Coder should return a blocker instead of guessing.
+
+Brain must include what to build, how to build it, success criteria, and a local test plan when it passes work to Looper. The app injects detected local validation context, including package scripts and environment setup signals, so Brain can distinguish tests that can run locally from checks that require user-approved setup. Looper is the trusted local validation authority for the chain and returns the final validation result to the app.
 
 ## Run
 

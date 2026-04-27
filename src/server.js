@@ -268,20 +268,40 @@ async function runTestChain(res) {
 async function runFullChain(res, userMessage) {
   const chainId = makeChainId();
   const coderMode = getCoderMode();
+  const localValidationContext = getLocalValidationContext();
 
   emit(
     session.appendEvent({
       type: "chain:start",
       chainId,
-      route: ["brain", "looper", "coder", "app"],
-      message: "Full Chain started: Brain -> Looper -> Coder -> App",
+      route: ["brain", "looper", "coder", "looper", "app"],
+      message: "Full Chain started: Brain -> Looper -> Coder -> Looper -> App",
       coderMode
     })
   );
 
+  const brainPrompt = [
+    "User request:",
+    userMessage,
+    "",
+    "Local validation context available to Brain:",
+    JSON.stringify(localValidationContext, null, 2),
+    "",
+    "Brain must issue Looper a plan that includes:",
+    "- what to build",
+    "- how to build it",
+    "- success criteria",
+    "- local tests or checks Looper/Coder can run here",
+    "- any local environment setup that needs user permission before it can be done",
+    "",
+    "Brain must not assume production database, secrets, credentials, or external services are available.",
+    "If env config, dependency install, auth, or service setup is needed, Brain must create a setup task for the user instead of doing it itself.",
+    "Looper is the trusted local validation authority for this chain; Brain should trust Looper's reported local test result unless the report conflicts with visible evidence."
+  ].join("\n");
+
   const brainResult = await runAgent({
     agent: config.agents.brain,
-    userMessage,
+    userMessage: brainPrompt,
     session,
     schema: config.schema,
     rootDir,
@@ -292,8 +312,25 @@ async function runFullChain(res, userMessage) {
       nextAction: "PASS_TO_LOOPER",
       messageHint: "short implementation plan for Looper",
       extraFields: {
+        build_intent: "what to build",
+        implementation_approach: ["how to build it"],
         plan: ["ordered implementation steps"],
         success_criteria: ["checklist item"],
+        local_test_plan: [
+          {
+            command: "local command or manual check",
+            purpose: "what this proves",
+            requires: ["local prerequisite"],
+            expected_signal: "pass condition"
+          }
+        ],
+        local_test_environment: {
+          available_locally: ["detected local capability"],
+          not_available_without_setup: ["missing env, service, auth, db, or dependency"],
+          setup_status: "ready | needs-user-permission | unknown"
+        },
+        user_setup_tasks: ["permissioned setup task, or none"],
+        looper_test_authority: "Looper is trusted to run or verify the local test result for this chain.",
         constraints: ["implementation constraint"],
         risks: ["likely risk"]
       }
@@ -320,8 +357,11 @@ async function runFullChain(res, userMessage) {
     "ClauGeDex Full Chain.",
     "You are receiving Brain's routed plan through the app.",
     "Convert Brain's plan into one precise task for Coder.",
+    "Preserve Brain's what/how/success criteria/local test plan in the Coder task.",
+    "You are the trusted local validation authority for this chain. After Coder finishes, the app will route Coder's result back to you for validation.",
     `Current Coder mode: ${coderMode}. Ask Coder to implement directly when the task is precise enough, and to stop with a clear blocker when it is not.`,
     "Keep scope tight. Map Brain's plan to actual files if they are known.",
+    "Do not ask Coder to create secrets, configure production services, or set up missing env without user permission. Convert that need into user_setup_tasks.",
     "",
     "Brain envelope:",
     JSON.stringify(brainResult.envelope, null, 2)
@@ -343,7 +383,17 @@ async function runFullChain(res, userMessage) {
         task: "precise coder task",
         target_files: ["file path"],
         constraints: ["implementation constraint"],
-        success_criteria: ["checklist item"]
+        success_criteria: ["checklist item"],
+        local_test_commands: [
+          {
+            command: "local command or manual check",
+            purpose: "what this proves",
+            required_setup: ["local prerequisite"],
+            expected_signal: "pass condition"
+          }
+        ],
+        user_setup_tasks: ["permissioned setup task, or none"],
+        validation_owner: "looper"
       }
     }
   });
@@ -371,6 +421,8 @@ async function runFullChain(res, userMessage) {
     `Current Coder mode: ${coderMode}.`,
     "Implement the routed task directly when it is precise enough and inside the working folder.",
     "Keep changes scoped to the task. Preserve unrelated user edits. Run relevant validation when possible.",
+    "Run the local_test_commands from Looper when they are safe and the local environment is already configured.",
+    "If a test needs missing env config, secrets, auth, dependency install, a production database, or an external service, do not set that up yourself; report it in tests_blocked and user_setup_tasks.",
     "If the task is unsafe, ambiguous, or outside the working folder, do not guess; return a clear blocker.",
     "",
     "Looper envelope:",
@@ -388,13 +440,27 @@ async function runFullChain(res, userMessage) {
       to: "app",
       type: "CODER_RESULT",
       nextAction: "PASS_TO_APP",
-      messageHint: "Coder completed read-only execution result",
+      messageHint: "Coder completed implementation result",
       extraFields: {
         chain_id: chainId,
         result_summary: "short result summary",
         files_changed: ["file path"],
         files_considered: ["file path"],
         changes_made: ["change summary"],
+        tests_run: [
+          {
+            command: "local command or manual check",
+            status: "passed | failed | skipped",
+            evidence: "short evidence"
+          }
+        ],
+        tests_blocked: [
+          {
+            command: "local command or manual check",
+            reason: "missing setup or unsafe requirement"
+          }
+        ],
+        user_setup_tasks: ["permissioned setup task, or none"],
         validation_notes: ["validation note"]
       }
     }
@@ -416,15 +482,76 @@ async function runFullChain(res, userMessage) {
     return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult, looper: looperResult, coder: coderResult } }, 502);
   }
 
-  emitRoute(chainId, "coder", "app", coderResult);
+  emitRoute(chainId, "coder", "looper", coderResult);
 
-  const completed = completeChain(chainId, "OK", "Full Chain succeeded: Brain -> Looper -> Coder -> App.", {
+  const validationPrompt = [
+    "ClauGeDex Full Chain validation step.",
+    "You are receiving Coder's result after implementation.",
+    "You are the trusted local validation authority for this chain.",
+    "Compare Coder's result against Brain's plan, success criteria, and local test plan.",
+    "Trust only local evidence reported by Coder or visible in the provided envelopes.",
+    "If tests passed, report PASS. If tests failed, report FAIL. If tests need user-approved setup, report BLOCKED and list user_setup_tasks.",
+    "",
+    "Brain envelope:",
+    JSON.stringify(brainResult.envelope, null, 2),
+    "",
+    "Coder envelope:",
+    JSON.stringify(coderResult.envelope, null, 2)
+  ].join("\n");
+
+  const validationResult = await runAgent({
+    agent: config.agents.looper,
+    userMessage: validationPrompt,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "app",
+      type: "LOOPER_VALIDATION_RESULT",
+      nextAction: "PASS_TO_APP",
+      messageHint: "Looper validated Coder result against Brain plan",
+      extraFields: {
+        chain_id: chainId,
+        validation_status: "PASS | FAIL | BLOCKED",
+        trusted_test_result: "short trusted test result",
+        tests_run: ["test result summary"],
+        tests_blocked: ["blocked test summary"],
+        matched_success_criteria: ["criterion result"],
+        remaining_risks: ["risk"],
+        user_setup_tasks: ["permissioned setup task, or none"]
+      }
+    }
+  });
+
+  if (!isUsableAgentResult(validationResult) || !envelopeMatches(validationResult.envelope, {
+    from: "looper",
+    to: "app",
+    type: "LOOPER_VALIDATION_RESULT",
+    status: "OK",
+    next_action: "PASS_TO_APP"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Looper did not return LOOPER_VALIDATION_RESULT.", {
+      brainRunId: brainResult.runId,
+      looperRunId: looperResult.runId,
+      coderRunId: coderResult.runId,
+      validationRunId: validationResult.runId,
+      validationIncident: validationResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult, looper: looperResult, coder: coderResult, validation: validationResult } }, 502);
+  }
+
+  emitRoute(chainId, "looper", "app", validationResult);
+
+  const completed = completeChain(chainId, "OK", "Full Chain succeeded: Brain -> Looper -> Coder -> Looper -> App.", {
     brainRunId: brainResult.runId,
     looperRunId: looperResult.runId,
     coderRunId: coderResult.runId,
-    totalTokens: sumResultTokens([brainResult, looperResult, coderResult])
+    validationRunId: validationResult.runId,
+    validationStatus: validationResult.envelope.validation_status || null,
+    totalTokens: sumResultTokens([brainResult, looperResult, coderResult, validationResult])
   });
-  return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult, coder: coderResult } });
+  return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult, coder: coderResult, validation: validationResult } });
 }
 
 function emitRoute(chainId, from, to, result) {
@@ -470,6 +597,41 @@ function getCoderMode() {
   const coder = config.agents.coder || {};
   const sandboxMode = coder.sandboxMode || "unspecified";
   return coder.writeAccess ? `edit-enabled:${sandboxMode}` : `read-only:${sandboxMode}`;
+}
+
+function getLocalValidationContext() {
+  const packageJsonPath = path.join(rootDir, "package.json");
+  let packageScripts = {};
+  if (fs.existsSync(packageJsonPath)) {
+    try {
+      packageScripts = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")).scripts || {};
+    } catch (error) {
+      packageScripts = { parse_error: error.message };
+    }
+  }
+
+  return {
+    cwd: rootDir,
+    package_scripts: packageScripts,
+    package_manager_files: {
+      package_json: fs.existsSync(packageJsonPath),
+      package_lock: fs.existsSync(path.join(rootDir, "package-lock.json")),
+      pnpm_lock: fs.existsSync(path.join(rootDir, "pnpm-lock.yaml")),
+      yarn_lock: fs.existsSync(path.join(rootDir, "yarn.lock"))
+    },
+    dependency_state: {
+      node_modules_present: fs.existsSync(path.join(rootDir, "node_modules"))
+    },
+    env_files_present: [".env", ".env.local", ".env.development"].filter((name) =>
+      fs.existsSync(path.join(rootDir, name))
+    ),
+    local_test_guidance: [
+      "Prefer commands already listed in package_scripts.",
+      "Mock/smoke tests are local checks when available.",
+      "Real CLI tests may require local CLI auth and should be treated as blocked if auth is unavailable.",
+      "Production database, secrets, credentials, external services, and new environment setup require user permission before use."
+    ]
+  };
 }
 
 function makeChainId() {

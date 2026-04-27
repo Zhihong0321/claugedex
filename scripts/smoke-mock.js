@@ -54,6 +54,9 @@ async function main() {
   if (!chain.results?.coder?.envelope?.changes_made) {
     throw new Error("Mock Coder did not return edit-mode result fields");
   }
+  if (chain.results?.validation?.envelope?.validation_status !== "PASS") {
+    throw new Error("Mock Looper validation did not return PASS");
+  }
 
   cleanup();
   console.log("Mock smoke passed: handshake and full chain returned valid ClauGeDex schema.");

@@ -69,7 +69,27 @@ function inferExtraFields(type) {
       files_changed: [],
       files_considered: ["mock.txt"],
       changes_made: ["No real changes in mock mode"],
+      tests_run: [
+        {
+          command: "mock local check",
+          status: "passed",
+          evidence: "mock evidence"
+        }
+      ],
+      tests_blocked: [],
+      user_setup_tasks: [],
       validation_notes: ["Mock validation passed"]
+    };
+  }
+  if (type === "LOOPER_VALIDATION_RESULT") {
+    return {
+      validation_status: "PASS",
+      trusted_test_result: "Mock Looper trusts the mock local test result",
+      tests_run: ["mock local check passed"],
+      tests_blocked: [],
+      matched_success_criteria: ["Mock success criterion matched"],
+      remaining_risks: [],
+      user_setup_tasks: []
     };
   }
   return {};
