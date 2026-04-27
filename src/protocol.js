@@ -1,9 +1,18 @@
 const RESPONSE_START = "<<<CLAUGEDEX_RESPONSE_START>>>";
 const RESPONSE_END = "<<<CLAUGEDEX_RESPONSE_END>>>";
 
-function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema }) {
+function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema, responseContract }) {
   const startMarker = schema?.startMarker || RESPONSE_START;
   const endMarker = schema?.endMarker || RESPONSE_END;
+  const contract = {
+    to: "app",
+    type: "AGENT_RESPONSE",
+    status: "OK",
+    nextAction: "PASS_TO_APP",
+    messageHint: "short response here",
+    extraFields: {},
+    ...(responseContract || {})
+  };
 
   return [
     agent.contextPrompt || "",
@@ -20,18 +29,26 @@ function buildAgentPrompt({ agent, userMessage, runId, sessionId, schema }) {
     "{",
     '  "claugedex": true,',
     `  "from": "${agent.id}",`,
-    '  "to": "app",',
-    '  "type": "AGENT_RESPONSE",',
-    '  "status": "OK",',
+    `  "to": "${contract.to}",`,
+    `  "type": "${contract.type}",`,
+    `  "status": "${contract.status}",`,
     `  "session_id": "${sessionId}",`,
     `  "run_id": "${runId}",`,
-    '  "message": "short response here",',
-    '  "next_action": "PASS_TO_APP"',
+    `  "message": "${contract.messageHint}",`,
+    ...formatExtraFields(contract.extraFields),
+    `  "next_action": "${contract.nextAction}"`,
     "}",
     "",
     "User prompt:",
     userMessage
   ].join("\n");
+}
+
+function formatExtraFields(extraFields) {
+  return Object.entries(extraFields || {}).map(([key, value]) => {
+    const encoded = JSON.stringify(value);
+    return `  "${key}": ${encoded},`;
+  });
 }
 
 function extractProtocolResponse(raw, schema) {

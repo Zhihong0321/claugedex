@@ -12,6 +12,7 @@ const panels = Object.fromEntries(
 const promptForm = document.getElementById("promptForm");
 const promptInput = document.getElementById("promptInput");
 const handshakeButton = document.getElementById("handshakeButton");
+const testChainButton = document.getElementById("testChainButton");
 const sendButton = document.getElementById("sendButton");
 const clearButton = document.getElementById("clearButton");
 const debugLog = document.getElementById("debugLog");
@@ -63,6 +64,10 @@ handshakeButton.addEventListener("click", async () => {
   await postPrompt("/api/handshake", {
     targets: selectedTargets()
   });
+});
+
+testChainButton.addEventListener("click", async () => {
+  await postPrompt("/api/test-chain", {});
 });
 
 clearButton.addEventListener("click", async () => {
@@ -173,6 +178,15 @@ function summarizeEvent(event) {
   if (event.type === "run:start") {
     return `${event.agentId} ${event.command} ${event.argsPreview?.join(" ") || ""}`;
   }
+  if (event.type === "chain:start") {
+    return `${event.chainId} ${event.message}`;
+  }
+  if (event.type === "chain:route") {
+    return `${event.chainId} ${event.from}->${event.to} ${event.routedType}`;
+  }
+  if (event.type === "chain:complete") {
+    return `${event.chainId} ${event.status} ${event.message}`;
+  }
   if (event.type === "run:complete") {
     return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} incident=${event.incident?.incidentId || "none"}`;
   }
@@ -187,6 +201,7 @@ function summarizeEvent(event) {
 function setBusy(busy) {
   sendButton.disabled = busy;
   handshakeButton.disabled = busy;
+  testChainButton.disabled = busy;
 }
 
 async function getJson(url) {

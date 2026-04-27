@@ -3,7 +3,7 @@ const path = require("path");
 const { buildAgentPrompt, extractProtocolResponse } = require("./protocol");
 const { makeRunId } = require("./logger");
 
-async function runAgent({ agent, userMessage, session, schema, rootDir, emit }) {
+async function runAgent({ agent, userMessage, session, schema, rootDir, emit, responseContract }) {
   const runId = makeRunId(agent.id);
   const startedAt = Date.now();
   const cwd = path.resolve(rootDir, agent.cwd || ".");
@@ -12,7 +12,8 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit }) 
     userMessage,
     runId,
     sessionId: session.sessionId,
-    schema
+    schema,
+    responseContract
   });
 
   const templateValues = {

@@ -9,6 +9,16 @@ Prototype CLI bridge for Claude, Gemini, and Codex.
 - Capture stdout, stderr, exit code, timing, and schema parse status.
 - Persist every run into a session folder for debugging.
 
+## v0.0.2 Test Chain
+
+The `Test Chain` button runs a fixed bridge test:
+
+```text
+Brain -> Looper -> App
+```
+
+Brain must return `PLAN_TO_LOOPER`. The app routes that envelope into Looper. Looper must return `CHAIN_TEST_SUCCESS` to the app. Success returns to the app first because the app is the protocol bridge; Brain final review comes later.
+
 ## Run
 
 ```powershell

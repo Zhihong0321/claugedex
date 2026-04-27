@@ -19,6 +19,7 @@ function respond() {
   const now = new Date().toISOString();
   const promptArg = process.argv.slice(3).join(" ");
   const prompt = stdin || promptArg || "";
+  const shape = inferShape(prompt, agentId);
   const message = `Mock ${agentId} received ${prompt.length} chars`;
   console.log("mock raw line before schema");
   console.log("<<<CLAUGEDEX_RESPONSE_START>>>");
@@ -27,13 +28,13 @@ function respond() {
       {
         claugedex: true,
         from: agentId,
-        to: "app",
-        type: "AGENT_RESPONSE",
+        to: shape.to,
+        type: shape.type,
         status: "OK",
         session_id: "mock-session",
         run_id: "mock-run",
         message,
-        next_action: "PASS_TO_APP",
+        next_action: shape.nextAction,
         observed_at: now
       },
       null,
@@ -41,4 +42,17 @@ function respond() {
     )
   );
   console.log("<<<CLAUGEDEX_RESPONSE_END>>>");
+}
+
+function inferShape(prompt, agentId) {
+  const to = matchRequiredValue(prompt, "to") || "app";
+  const type = matchRequiredValue(prompt, "type") || "AGENT_RESPONSE";
+  const nextAction = matchRequiredValue(prompt, "next_action") || "PASS_TO_APP";
+  return { to, type, nextAction };
+}
+
+function matchRequiredValue(prompt, key) {
+  const pattern = new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`);
+  const match = String(prompt).match(pattern);
+  return match?.[1] || null;
 }

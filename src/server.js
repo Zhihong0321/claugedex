@@ -74,6 +74,10 @@ const server = http.createServer(async (req, res) => {
       return runTargets(res, targets, message);
     }
 
+    if (req.method === "POST" && url.pathname === "/api/test-chain") {
+      return runTestChain(res);
+    }
+
     if (req.method === "POST" && url.pathname === "/api/clear-view") {
       emit(session.appendEvent({ type: "ui:clear-view" }));
       return sendJson(res, { ok: true });
@@ -139,6 +143,142 @@ async function runTargets(res, targets, message) {
 
   const results = await Promise.all(jobs);
   return sendJson(res, { ok: true, results });
+}
+
+async function runTestChain(res) {
+  const chainId = makeChainId();
+  const brainPrompt = [
+    "ClauGeDex Test Chain v0.0.2.",
+    "Create one tiny execution plan for Looper.",
+    "The plan must only ask Looper to confirm that it received Brain's plan.",
+    "Do not ask Coder to edit files.",
+    "Keep the plan short."
+  ].join("\n");
+
+  emit(
+    session.appendEvent({
+      type: "chain:start",
+      chainId,
+      route: ["brain", "looper", "app"],
+      message: "Test Chain started: Brain -> Looper -> App"
+    })
+  );
+
+  const brainResult = await runAgent({
+    agent: config.agents.brain,
+    userMessage: brainPrompt,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "looper",
+      type: "PLAN_TO_LOOPER",
+      nextAction: "PASS_TO_LOOPER",
+      messageHint: "short plan for Looper"
+    }
+  });
+
+  if (!isUsableAgentResult(brainResult) || !envelopeMatches(brainResult.envelope, {
+    from: "brain",
+    to: "looper",
+    type: "PLAN_TO_LOOPER",
+    status: "OK",
+    next_action: "PASS_TO_LOOPER"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Brain did not return a usable schema response.", {
+      brainRunId: brainResult.runId,
+      brainIncident: brainResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult } }, 502);
+  }
+
+  emit(
+    session.appendEvent({
+      type: "chain:route",
+      chainId,
+      from: "brain",
+      to: "looper",
+      sourceRunId: brainResult.runId,
+      routedType: brainResult.envelope?.type,
+      message: "Brain output routed to Looper"
+    })
+  );
+
+  const looperPrompt = [
+    "ClauGeDex Test Chain v0.0.2.",
+    "You are receiving Brain's routed plan through the app.",
+    "Your job for this test is only to confirm the chain worked.",
+    "Return success to the app. Do not call Coder.",
+    "",
+    "Brain envelope:",
+    JSON.stringify(brainResult.envelope, null, 2)
+  ].join("\n");
+
+  const looperResult = await runAgent({
+    agent: config.agents.looper,
+    userMessage: looperPrompt,
+    session,
+    schema: config.schema,
+    rootDir,
+    emit,
+    responseContract: {
+      to: "app",
+      type: "CHAIN_TEST_SUCCESS",
+      nextAction: "PASS_TO_APP",
+      messageHint: "Looper received Brain plan and confirms chain success",
+      extraFields: {
+        chain_id: chainId,
+        received_from: "brain"
+      }
+    }
+  });
+
+  if (!isUsableAgentResult(looperResult) || !envelopeMatches(looperResult.envelope, {
+    from: "looper",
+    to: "app",
+    type: "CHAIN_TEST_SUCCESS",
+    status: "OK",
+    next_action: "PASS_TO_APP"
+  })) {
+    const failed = completeChain(chainId, "FAILED", "Looper did not return a usable schema response.", {
+      brainRunId: brainResult.runId,
+      looperRunId: looperResult.runId,
+      looperIncident: looperResult.incident?.incidentId || null
+    });
+    return sendJson(res, { ok: false, chain: failed, results: { brain: brainResult, looper: looperResult } }, 502);
+  }
+
+  const completed = completeChain(chainId, "OK", "Test Chain succeeded: Brain -> Looper -> App.", {
+    brainRunId: brainResult.runId,
+    looperRunId: looperResult.runId
+  });
+  return sendJson(res, { ok: true, chain: completed, results: { brain: brainResult, looper: looperResult } });
+}
+
+function completeChain(chainId, status, message, details = {}) {
+  const event = session.appendEvent({
+    type: "chain:complete",
+    chainId,
+    status,
+    message,
+    ...details
+  });
+  emit(event);
+  return event;
+}
+
+function isUsableAgentResult(result) {
+  return Boolean(result && result.exitCode === 0 && !result.timedOut && result.protocolOk && result.envelope);
+}
+
+function envelopeMatches(envelope, expected) {
+  if (!envelope) return false;
+  return Object.entries(expected).every(([key, value]) => envelope[key] === value);
+}
+
+function makeChainId() {
+  return `chain-${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "-")}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
 function normalizeTargets(targets) {
