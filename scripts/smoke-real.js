@@ -43,6 +43,8 @@ async function main() {
     timedOut: result.timedOut,
     protocolOk: result.protocolOk,
     protocolError: result.protocolError,
+    tokens: result.tokens?.total ?? null,
+    tokenSource: result.tokens?.source ?? "unavailable",
     incident: result.incident?.incidentId || null,
     stdoutPath: result.stdoutPath,
     stderrPath: result.stderrPath

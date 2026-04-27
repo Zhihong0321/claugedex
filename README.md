@@ -61,11 +61,11 @@ Edit `claugedex.config.json` to change command adapters.
 
 Current defaults:
 
-- Brain: `claude -p --output-format text` with prompt on stdin
-- Looper: direct Node launch of the Gemini CLI script with `--prompt "{{prompt}}" --output-format text`
-- Coder: `codex exec -m gpt-5.3-codex --sandbox read-only -C "{{cwd}}"` with prompt on stdin
+- Brain: `claude -p --output-format json` with prompt on stdin
+- Looper: direct Node launch of the Gemini CLI script with `--prompt "{{prompt}}" --output-format json`
+- Coder: `codex exec -m gpt-5.3-codex --sandbox read-only --json -C "{{cwd}}"` with prompt on stdin
 
-The app injects the role context, user prompt, session id, run id, and schema instructions into stdin. Adapters can still use `{{prompt}}` in `args` if a CLI requires prompt-as-argument mode.
+The app injects the role context, user prompt, session id, run id, and schema instructions into stdin or `{{prompt}}`, depending on the adapter. Structured CLI output is normalized back into ClauGeDex protocol text before schema parsing.
 
 ## Debug Output
 
@@ -87,6 +87,28 @@ Each run stores:
 - parsed result summary
 
 If a CLI response cannot be parsed, times out, fails to spawn, or exits non-zero, the app writes an incident package under `incidents/`. This is the handoff shape for the future General Edge Case Handler.
+
+## Token Telemetry
+
+ClauGeDex records token counts only, not cost. Each run result includes normalized token fields:
+
+```json
+{
+  "tokens": {
+    "source": "cli-reported",
+    "input": 0,
+    "output": 0,
+    "cached": 0,
+    "cache_creation": 0,
+    "thoughts": 0,
+    "tool": 0,
+    "total": 0,
+    "models": {}
+  }
+}
+```
+
+Cost is intentionally excluded because providers, API routes, and billing plans vary.
 
 ## Prototype Safety Note
 

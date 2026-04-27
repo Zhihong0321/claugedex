@@ -2,6 +2,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const { buildAgentPrompt, extractProtocolResponse } = require("./protocol");
 const { makeRunId } = require("./logger");
+const { normalizeAgentOutput } = require("./telemetry");
 
 async function runAgent({ agent, userMessage, session, schema, rootDir, emit, responseContract }) {
   const runId = makeRunId(agent.id);
@@ -133,9 +134,11 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
   });
 
   const durationMs = Date.now() - startedAt;
-  const protocol = extractProtocolResponse(stdout, schema);
+  const normalized = normalizeAgentOutput(agent, stdout);
+  const protocol = extractProtocolResponse(normalized.protocolText, schema);
   const stdoutPath = session.writeRunArtifact(runId, `${agent.id}-stdout.txt`, stdout);
   const stderrPath = session.writeRunArtifact(runId, `${agent.id}-stderr.txt`, stderr);
+  const normalizedOutputPath = session.writeRunArtifact(runId, `${agent.id}-normalized-output.txt`, normalized.protocolText);
 
   let incident = null;
   if (!protocol.ok || result.spawnError || timedOut || result.exitCode !== 0) {
@@ -159,7 +162,9 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
       spawnError: result.spawnError,
       stdoutPath,
       stderrPath,
+      normalizedOutputPath,
       promptPath,
+      tokens: normalized.telemetry,
       nextRecoveryTarget: "general-edge-case-handler"
     };
     incident.path = session.writeIncident(incident);
@@ -176,7 +181,9 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
     spawnError: result.spawnError,
     stdoutPath,
     stderrPath,
+    normalizedOutputPath,
     promptPath,
+    tokens: normalized.telemetry,
     protocolOk: protocol.ok,
     protocolSource: protocol.source,
     protocolError: protocol.error,
@@ -190,6 +197,7 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
     durationMs,
     exitCode: result.exitCode,
     protocolOk: protocol.ok,
+    tokens: normalized.telemetry,
     completedAt: new Date().toISOString()
   };
   session.state.lastRuns.unshift({
@@ -197,6 +205,7 @@ async function runAgent({ agent, userMessage, session, schema, rootDir, emit, re
     agentId: agent.id,
     durationMs,
     protocolOk: protocol.ok,
+    tokens: normalized.telemetry,
     incident: incident?.incidentId || null
   });
   session.state.lastRuns = session.state.lastRuns.slice(0, 50);

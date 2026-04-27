@@ -117,7 +117,7 @@ function handleEvent(event) {
     activeRuns = Math.max(0, activeRuns - 1);
     setAgentStatus(event.agentId, event.incident ? "needs-attention" : "ok");
     const schema = event.protocolOk ? `schema:${event.protocolSource}` : `schema:${event.protocolError}`;
-    metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema}`;
+    metas[event.agentId].textContent = `${event.durationMs}ms | exit ${event.exitCode} | ${schema} | ${formatTokens(event.tokens)}`;
   }
 
   if (event.type === "ui:clear-view") {
@@ -188,7 +188,7 @@ function summarizeEvent(event) {
     return `${event.chainId} ${event.status} ${event.message}`;
   }
   if (event.type === "run:complete") {
-    return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} incident=${event.incident?.incidentId || "none"}`;
+    return `${event.agentId} ${event.durationMs}ms exit=${event.exitCode} protocol=${event.protocolOk} ${formatTokens(event.tokens)} incident=${event.incident?.incidentId || "none"}`;
   }
   if (event.type === "run:stdout" || event.type === "run:stderr") {
     const text = String(event.text || "").replace(/\s+/g, " ").trim();
@@ -202,6 +202,21 @@ function setBusy(busy) {
   sendButton.disabled = busy;
   handshakeButton.disabled = busy;
   testChainButton.disabled = busy;
+}
+
+function formatTokens(tokens) {
+  if (!tokens || tokens.source === "unavailable") return "tokens:unavailable";
+  const parts = [`tok:${formatNumber(tokens.total)}`];
+  if (tokens.input) parts.push(`in:${formatNumber(tokens.input)}`);
+  if (tokens.output) parts.push(`out:${formatNumber(tokens.output)}`);
+  if (tokens.cached) parts.push(`cache:${formatNumber(tokens.cached)}`);
+  if (tokens.cache_creation) parts.push(`cache-new:${formatNumber(tokens.cache_creation)}`);
+  if (tokens.thoughts) parts.push(`thought:${formatNumber(tokens.thoughts)}`);
+  return parts.join(" ");
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString();
 }
 
 async function getJson(url) {
