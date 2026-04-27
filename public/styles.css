@@ -386,6 +386,10 @@ button:focus-visible {
   margin-top: 10px;
 }
 
+.chat-action-row {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 button {
   min-height: 36px;
   border: 1px solid var(--line);
@@ -400,14 +404,16 @@ button:hover {
 }
 
 button[type="submit"],
-#handshakeButton {
+#handshakeButton,
+#chatFullChainButton {
   color: #ffffff;
   border-color: var(--accent-strong);
   background: var(--accent);
 }
 
 button[type="submit"]:hover,
-#handshakeButton:hover {
+#handshakeButton:hover,
+#chatFullChainButton:hover {
   background: var(--accent-strong);
 }
 
@@ -512,6 +518,10 @@ button:disabled {
   }
 
   .button-row {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-action-row {
     grid-template-columns: 1fr;
   }
 }

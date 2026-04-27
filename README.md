@@ -40,7 +40,7 @@ Brain must include what to build, how to build it, success criteria, and a local
 
 When a chain is blocked on permission or missing user input, the response schema uses `user_input_needed: true`, a `user_input_request` object, and `next_action: "USER_INPUT_NEEDED"` when that action is allowed. The app emits `chain:user-input-needed` and shows a feedback panel so the user can answer and continue through Full Chain.
 
-The sidebar chat is a Brain inbox. Looper and Coder are reached through Test Chain or Full Chain routing, not direct chat targeting.
+The sidebar chat is a Brain inbox. Use `Ask Brain` for direct planning/discussion with Brain only. Use `Run Full Chain` from the top bar or the chat panel when the prompt should route through Brain, Looper, Coder, and Looper validation.
 
 ## Run
 

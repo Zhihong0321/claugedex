@@ -15,6 +15,7 @@ const promptInput = document.getElementById("promptInput");
 const handshakeButton = document.getElementById("handshakeButton");
 const testChainButton = document.getElementById("testChainButton");
 const fullChainButton = document.getElementById("fullChainButton");
+const chatFullChainButton = document.getElementById("chatFullChainButton");
 const sendButton = document.getElementById("sendButton");
 const clearButton = document.getElementById("clearButton");
 const debugLog = document.getElementById("debugLog");
@@ -119,6 +120,14 @@ testChainButton.addEventListener("click", async () => {
 });
 
 fullChainButton.addEventListener("click", async () => {
+  await runFullChainFromPrompt();
+});
+
+chatFullChainButton.addEventListener("click", async () => {
+  await runFullChainFromPrompt();
+});
+
+async function runFullChainFromPrompt() {
   const message = promptInput.value.trim();
   if (!message) {
     addDebugRow({
@@ -129,7 +138,7 @@ fullChainButton.addEventListener("click", async () => {
     return;
   }
   await postPrompt("/api/full-chain", { message });
-});
+}
 
 clearButton.addEventListener("click", async () => {
   for (const output of Object.values(outputs)) output.textContent = "";
@@ -461,6 +470,7 @@ function setBusy(busy) {
   handshakeButton.disabled = busy;
   testChainButton.disabled = busy;
   fullChainButton.disabled = busy;
+  chatFullChainButton.disabled = busy;
   continueChainButton.disabled = busy;
 }
 
