@@ -1,0 +1,50 @@
+{
+  "port": 3737,
+  "sessionDir": "sessions",
+  "handshakePrompt": "hi",
+  "schema": {
+    "startMarker": "<<<CLAUGEDEX_RESPONSE_START>>>",
+    "endMarker": "<<<CLAUGEDEX_RESPONSE_END>>>"
+  },
+  "agents": {
+    "brain": {
+      "id": "brain",
+      "label": "Brain",
+      "provider": "Claude Code CLI",
+      "enabled": true,
+      "command": "claude",
+      "args": ["-p", "--output-format", "text"],
+      "cwd": ".",
+      "stdinPrompt": true,
+      "shell": true,
+      "timeoutMs": 180000,
+      "contextPrompt": "You are Brain in ClauGeDex. You plan and respond as the planning authority. For prototype v0.0.1, answer the user's prompt briefly and wrap your final response in the required ClauGeDex response markers as valid JSON."
+    },
+    "looper": {
+      "id": "looper",
+      "label": "Looper",
+      "provider": "Gemini CLI",
+      "enabled": true,
+      "command": "{{node}}",
+      "args": ["--no-warnings=DEP0040", "{{npmGlobal}}\\node_modules\\@google\\gemini-cli\\dist\\index.js", "--prompt", "{{prompt}}", "--output-format", "text"],
+      "cwd": ".",
+      "stdinPrompt": false,
+      "shell": false,
+      "timeoutMs": 180000,
+      "contextPrompt": "You are Looper in ClauGeDex. You manage execution and validate work against Brain instructions. For prototype v0.0.1, answer the user's prompt briefly and wrap your final response in the required ClauGeDex response markers as valid JSON."
+    },
+    "coder": {
+      "id": "coder",
+      "label": "Coder",
+      "provider": "Codex CLI",
+      "enabled": true,
+      "command": "codex",
+      "args": ["exec", "-m", "gpt-5.3-codex", "--sandbox", "read-only", "-C", "{{cwd}}"],
+      "cwd": ".",
+      "stdinPrompt": true,
+      "shell": true,
+      "timeoutMs": 240000,
+      "contextPrompt": "You are Coder in ClauGeDex. You execute only the precise task you are given. For prototype v0.0.1, answer the user's prompt briefly without editing files and wrap your final response in the required ClauGeDex response markers as valid JSON."
+    }
+  }
+}

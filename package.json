@@ -1,0 +1,16 @@
+{
+  "name": "claugedex",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Prototype UI and CLI bridge for Claude, Gemini, and Codex orchestration.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:mock": "node src/server.js --mock",
+    "smoke:mock": "node scripts/smoke-mock.js",
+    "smoke:real": "node scripts/smoke-real.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

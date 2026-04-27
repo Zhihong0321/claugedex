@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClauGeDex v0.0.1</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>ClauGeDex</h1>
+        <p id="sessionLine">Starting session...</p>
+      </div>
+      <div class="topbar-actions">
+        <span id="modeBadge" class="badge">mode</span>
+        <button id="handshakeButton" type="button">Handshake</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="agents-grid" aria-label="Agent responses">
+        <article class="agent-panel" data-agent="brain">
+          <header>
+            <div>
+              <h2>Brain</h2>
+              <span class="provider">Claude Code CLI</span>
+            </div>
+            <span class="status idle">idle</span>
+          </header>
+          <pre class="output" id="output-brain"></pre>
+          <footer>
+            <span id="meta-brain">No runs yet</span>
+          </footer>
+        </article>
+
+        <article class="agent-panel" data-agent="looper">
+          <header>
+            <div>
+              <h2>Looper</h2>
+              <span class="provider">Gemini CLI</span>
+            </div>
+            <span class="status idle">idle</span>
+          </header>
+          <pre class="output" id="output-looper"></pre>
+          <footer>
+            <span id="meta-looper">No runs yet</span>
+          </footer>
+        </article>
+
+        <article class="agent-panel" data-agent="coder">
+          <header>
+            <div>
+              <h2>Coder</h2>
+              <span class="provider">Codex CLI</span>
+            </div>
+            <span class="status idle">idle</span>
+          </header>
+          <pre class="output" id="output-coder"></pre>
+          <footer>
+            <span id="meta-coder">No runs yet</span>
+          </footer>
+        </article>
+      </section>
+
+      <aside class="side-panel">
+        <section class="chat-panel">
+          <h2>Chat</h2>
+          <form id="promptForm">
+            <div class="target-row" id="targetRow">
+              <label><input type="checkbox" value="brain" checked /> Brain</label>
+              <label><input type="checkbox" value="looper" checked /> Looper</label>
+              <label><input type="checkbox" value="coder" checked /> Coder</label>
+            </div>
+            <textarea id="promptInput" rows="5" autocomplete="off">hi</textarea>
+            <div class="button-row">
+              <button id="sendButton" type="submit">Send</button>
+              <button id="clearButton" type="button">Clear View</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="debug-panel">
+          <div class="debug-header">
+            <h2>Debug</h2>
+            <span id="debugCount">0 events</span>
+          </div>
+          <div id="debugLog" class="debug-log"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

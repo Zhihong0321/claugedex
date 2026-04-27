@@ -1,0 +1,7 @@
+node_modules/
+sessions/
+.playwright-mcp/
+claugedex-v001-*.png
+.env
+.DS_Store
+Thumbs.db
